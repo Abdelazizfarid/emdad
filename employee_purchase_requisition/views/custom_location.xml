@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_location_form_inherit" model="ir.ui.view">
+        <field name="name">stock.location.form.inherit</field>
+        <field name="model">stock.location</field>
+        <field name="inherit_id" ref="stock.view_location_form"/>
+        <field name="arch" type="xml">
+            <!-- Add Address field below the location_id field -->
+            <xpath expr="//field[@name='location_id']" position="after">
+                <!-- Ensure label is displayed for Address field -->
+                <div>
+                    <label for="address"/>
+                    <field name="address" placeholder="Enter Address"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,117 @@
+<odoo>
+    <!-- Form view for Sales Requisition -->
+    <record id="view_custom_sales_requisition_form" model="ir.ui.view">
+        <field name="name">custom.sales.requisition.form</field>
+        <field name="model">custom.sales.requisition</field>
+        <field name="arch" type="xml">
+            <form string="Custom Sales Requisition">
+                <!-- Add header to the form view -->
+                <header>
+                    <button name="action_submit_offer" type="object" string="Submit Offer" class="oe_highlight" invisible="stage != 'new'"/>
+                    <!-- Add the stage field with statusbar widget -->
+                    <field name="stage" widget="statusbar" statusbar_visible="new,cancel,sales_order_created,updated,requisition_sent"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="responsible_id"/>
+                        <h1>
+                            <field name="responsible_id" placeholder="e.g. Responsible User"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <!-- Main left section -->
+                        <group>
+                            <field name="requisition_date" readonly="1"/>
+                            <field name="received_date" readonly="1"/>
+                            <field name="requisition_deadline" readonly="1"/>
+                            <field name="company_id" readonly="1"/>
+                            <field name="order_type" readonly="1"/>
+                            <field name="payment_method" readonly="1"/>
+                            <field name="supply_type" widget="radio" readonly="1"/>
+                            <field name="required_delivery_date" readonly="1"/>
+                        </group>
+
+                         <!-- Picking details on the right section -->
+                        <group class="oe_right">
+                            <group string="Picking Details" col="2">
+                                <field name="source_location_id" readonly="1"/>
+                                <field name="destination_location_id"
+                                       invisible="supply_type !='single'" readonly="1"/>
+                                <field name="address" invisible="supply_type !='single'" readonly="1"/>
+                                <field name="delivery_to_id" readonly="1"/>
+                                <field name="internal_picking_id" readonly="1"/>
+                            </group>
+                        </group>
+                    </group>
+
+                    <div class="oe_clear"></div>
+
+                    <!-- Sales Requisition Orders in a tab with inline editing -->
+                    <notebook>
+                        <page string="Requisition Orders">
+                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom">
+                                <tree string="Sales Requisition Orders" editable="bottom">
+                                    <field name="product_category_id" readonly="1"/>
+                                    <field name="product_id" readonly="1"/>
+                                    <field name="uom_id" readonly="1"/>
+                                    <field name="description" readonly="1"/>
+                                    <field name="quantity" readonly="1"/>
+                                    <field name="unit_price"/>
+                                    <field name="total" readonly="1"/>
+                                    <field name="location_id" readonly="1"/>
+                                    <field name="address" readonly="1"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- List view for Sales Requisition -->
+    <record id="view_custom_sales_requisition_list" model="ir.ui.view">
+        <field name="name">custom.sales.requisition.list</field>
+        <field name="model">custom.sales.requisition</field>
+        <field name="arch" type="xml">
+            <tree string="Custom Sales Requisition">
+                <field name="responsible_id"/>
+                <field name="requisition_date"/>
+                <field name="requisition_deadline"/>
+                <field name="company_id"/>
+                <field name="order_type"/>
+                <field name="payment_method"/>
+                <field name="supply_type"/>
+                <field name="stage"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action to open the list view -->
+    <record id="action_custom_sales_requisition" model="ir.actions.act_window">
+        <field name="name">Sales Requisitions</field>
+        <field name="res_model">custom.sales.requisition</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_custom_sales_requisition_list"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Sales Requisition
+            </p>
+        </field>
+    </record>
+
+<!--    &lt;!&ndash; Menu item to access Sales Requisitions under the parent menu &ndash;&gt;-->
+<!--    <menuitem id="menu_custom_sales_requisition_root"-->
+<!--              name="Sales Requisitions"-->
+<!--              parent="employee_purchase_requisition_menu_root"-->
+<!--              sequence="11"-->
+<!--              action="action_custom_sales_requisition"/>-->
+
+     <!-- Add a menu item under Odoo Sales module -->
+    <menuitem id="menu_custom_sales_requisition_in_sales"
+              name="Sales Requisitions"
+              parent="sale.sale_order_menu"
+              action="action_custom_sales_requisition"
+              sequence="12"/>
+</odoo>
