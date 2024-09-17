@@ -38,6 +38,8 @@ class CustomPurchaseRequisition(models.Model):
         required=True,  # Make the field required
         default='single'  # Set the default value
     )
+    single_location_id = fields.Many2one('stock.location', string='Location',domain=[('usage', '=', 'internal')])
+
 
     products_category_type = fields.Selection(
         [('single', 'Single'), ('multiple', 'Multiple')],
@@ -45,6 +47,8 @@ class CustomPurchaseRequisition(models.Model):
         required=True,  # Make the field required
         default='single'  # Set the default value
     )
+    single_category_id = fields.Many2one('product.category', string='Product Category')
+
 
     supply_type = fields.Selection(
         [('single', 'Single Location'), ('multiple', 'Multiple Locations')],
@@ -52,6 +56,7 @@ class CustomPurchaseRequisition(models.Model):
         required=True,  # Make the field required
         default='single'  # Set the default value
     )
+    single_vendor_id = fields.Many2one('res.company', string='Vendor',)
 
     stage = fields.Selection([
         ('new', 'New'),
@@ -87,6 +92,29 @@ class CustomPurchaseRequisition(models.Model):
     total_before_tax = fields.Float(string="Total Before Tax", compute="_compute_totals", store=True)
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
+
+    # @api.onchange('products_category_type', 'single_category_id', 'requisition_order_ids')
+    # def _onchange_products_category_type(self):
+    #     """
+    #     Onchange to filter the product_id domain in requisition_order_ids based on products_category_type.
+    #     """
+    #     domain = {}
+    #     if self.products_category_type == 'single':
+    #         # Filter product_id by single_category_id for single category type
+    #         if self.single_category_id:
+    #             for order in self.requisition_order_ids:
+    #                 domain['product_id'] = [('categ_id', '=', self.single_category_id.id)]
+    #                 order.product_id = False  # Clear product selection when category changes
+    #     else:
+    #         # Filter product_id by product_category_id in each requisition order for multiple category type
+    #         for order in self.requisition_order_ids:
+    #             if order.product_category_id:
+    #                 domain['product_id'] = [('categ_id', '=', order.product_category_id.id)]
+    #             else:
+    #                 domain['product_id'] = []
+    #             order.product_id = False  # Clear product selection when category changes
+    #
+    #     return {'domain': domain}
 
     @api.depends('requisition_order_ids.total', 'requisition_order_ids.unit_price', 'requisition_order_ids.tax_id')
     def _compute_totals(self):
@@ -132,29 +160,77 @@ class CustomPurchaseRequisition(models.Model):
 
             # Join offers for display
             record.vendors_offers = "\n".join(offers)
+
     @api.model
     def create(self, vals):
         # Call super to create the record first
         requisition = super(CustomPurchaseRequisition, self).create(vals)
 
-        # After creation, validate the lines based on supply_type
+        # Validate supply_type
         if requisition.supply_type == 'single':
+            if not requisition.single_location_id:
+                raise ValidationError("Location must be specified for single supply type.")
+        else:
             for line in requisition.requisition_order_ids:
-                if line.location_id:
+                if not line.location_id:
+                    raise ValidationError("Each requisition line must have a location specified for this supply type.")
+
+        # Validate products_category_type
+        if requisition.products_category_type == 'single':
+            if not requisition.single_category_id:
+                raise ValidationError("Product Category must be specified for single category type.")
+        else:
+            for line in requisition.requisition_order_ids:
+                if not line.product_category_id:
                     raise ValidationError(
-                        "You cannot set location data for single supply type. If you want to use multiple locations, please choose 'Multiple' as the supply type.")
+                        "Each requisition line must have a product category specified for this category type.")
+
+        # Validate vendor for supply_type
+        if requisition.supply_type == 'single':
+            if not requisition.single_vendor_id:
+                raise ValidationError("Vendor must be specified for single supply type.")
+        else:
+            for line in requisition.requisition_order_ids:
+                if not line.vendor_id:
+                    raise ValidationError("Each requisition line must have a vendor specified for this supply type.")
+
         return requisition
 
     def write(self, vals):
         # Call super to update the record first
         result = super(CustomPurchaseRequisition, self).write(vals)
 
-        # After updating, validate the lines based on supply_type
-        if self.supply_type == 'single':
-            for line in self.requisition_order_ids:
-                if line.location_id:
-                    raise ValidationError(
-                        "You cannot set location data for single supply type. If you want to use multiple locations, please choose 'Multiple' as the supply type.")
+        for requisition in self:
+            # Validate supply_type
+            if requisition.supply_type == 'single':
+                if not requisition.single_location_id:
+                    raise ValidationError("Location must be specified for single supply type.")
+            else:
+                for line in requisition.requisition_order_ids:
+                    if not line.location_id:
+                        raise ValidationError(
+                            "Each requisition line must have a location specified for this supply type.")
+
+            # Validate products_category_type
+            if requisition.products_category_type == 'single':
+                if not requisition.single_category_id:
+                    raise ValidationError("Product Category must be specified for single category type.")
+            else:
+                for line in requisition.requisition_order_ids:
+                    if not line.product_category_id:
+                        raise ValidationError(
+                            "Each requisition line must have a product category specified for this category type.")
+
+            # Validate vendor for supply_type
+            if requisition.supply_type == 'single':
+                if not requisition.single_vendor_id:
+                    raise ValidationError("Vendor must be specified for single supply type.")
+            else:
+                for line in requisition.requisition_order_ids:
+                    if not line.vendor_id:
+                        raise ValidationError(
+                            "Each requisition line must have a vendor specified for this supply type.")
+
         return result
 
     # Method to create sales requisitions for vendors
@@ -274,6 +350,7 @@ class CustomPurchaseRequisitionOrder(models.Model):
 
     # Add unique identifier field to link with Sales Requisition
     unique_id = fields.Char(string='Unique Identifier')
+
 
     @api.depends('unit_price', 'quantity', 'tax_id')
     def _compute_total(self):
