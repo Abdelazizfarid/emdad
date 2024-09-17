@@ -5,24 +5,58 @@ class CustomSalesRequisition(models.Model):
     _name = 'custom.sales.requisition'
     _description = 'Custom Sales Requisition'
 
-    responsible_id = fields.Many2one('res.users', string='Responsible', required=True)
-    requisition_date = fields.Date(string='Requisition Date', required=True)
+    responsible_id = fields.Many2one('res.users', string='Responsible', required=True, default=lambda self: self.env.user.id)
+    requisition_date = fields.Date(string='Requisition Date', required=True, default=fields.Date.today)
     received_date = fields.Date(string='Received Date')
     requisition_deadline = fields.Date(string='Requisition Deadline', required=True)
-    company_id = fields.Many2one('res.company', string='Company', required=True)
+    company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company.id)
+
     order_type = fields.Selection([
         ('one_time', 'One-time Supply'),
         ('scheduled', 'Scheduled Supply')
     ], string='Type of Order', required=True)
+
     payment_method = fields.Selection([
-        ('prepaid', 'Prepaid'),
-        ('postpaid', 'Postpaid')
+        ('cash', 'Cash'),
+        ('credit', 'Credit')
     ], string='Payment Method', required=True)
+
+    prepaid = fields.Selection([
+        ('op_30', '30 days'),
+        ('op_60', '60 days'),
+        ('op_90', '90 days'),
+        ('op_120', '120 days')
+    ], string='Prepaid')
+
+    payment_term = fields.Selection([
+        ('op_30', '30 days'),
+        ('op_60', '60 days'),
+        ('op_90', '90 days'),
+        ('op_120', '120 days')
+    ], string='Payment Terms')
+
+    supplier_type = fields.Selection(
+        [('single', 'Single'), ('multiple', 'Multiple')],
+        string="Supplier Type",
+        required=True,
+        default='single'
+    )
+
+    products_category_type = fields.Selection(
+        [('single', 'Single'), ('multiple', 'Multiple')],
+        string="Category Type",
+        required=True,
+        default='single'
+    )
+    single_location_id = fields.Many2one('stock.location', string='Location', domain=[('usage', '=', 'internal')])
+    single_category_id = fields.Many2one('product.category', string='Product Category')
+
     supply_type = fields.Selection([
         ('single', 'Single Location'),
         ('multiple', 'Multiple Locations')
-    ], string='Supply', required=True)
-    required_delivery_date = fields.Date(string='Required Delivery Date')
+    ], string='Supply', required=True, default='single')
+
+    single_vendor_id = fields.Many2one('res.company', string='Vendor')
 
     stage = fields.Selection([
         ('new', 'New'),
@@ -38,16 +72,25 @@ class CustomSalesRequisition(models.Model):
         string='Sales Requisition Orders'
     )
 
+    receiving_order_ids = fields.One2many(
+        'receiving.date',  # Related model
+        'requisition_id',  # The Many2one field in the related model
+        string='Receiving Date'
+    )
+
     # Picking Details Fields
-    source_location_id = fields.Many2one('stock.location', string='Source Location')
-    destination_location_id = fields.Many2one('stock.location', string='Destination Location')
+    source_location_id = fields.Many2one('stock.location', string='Source Location', default=lambda self: self.env.user.assigned_location.id)
+    destination_location_id = fields.Many2one('stock.location', string='Destination Location', domain=[('usage', '=', 'internal')])
     delivery_to_id = fields.Many2one('stock.picking.type', string='Delivery To')
     internal_picking_id = fields.Many2one('stock.picking.type', string='Internal Picking')
 
     # Related field to get the address from the destination_location_id
     address = fields.Char(related='destination_location_id.address', string='Destination Address', readonly=True)
 
-    # Method to submit the offer and update relevant purchase requisition order lines
+    # Total Calculation Fields
+    total_before_tax = fields.Float(string="Total Before Tax", store=True)
+    tax = fields.Float(string="Tax", store=True)
+    total = fields.Float(string="Total", store=True)
 
 
     def action_submit_offer(self):
@@ -85,6 +128,7 @@ class CustomSalesRequisitionOrder(models.Model):
 
     # Unit price comes from sales requisition, and is readonly in purchase requisition
     unit_price = fields.Float(string='Unit Price')
+    tax_id = fields.Many2one('account.tax', string='Tax')
 
     # Computed field for total (unit_price * quantity)
     total = fields.Float(string='Total', compute='_compute_total', store=True)

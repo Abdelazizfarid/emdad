@@ -93,28 +93,6 @@ class CustomPurchaseRequisition(models.Model):
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
 
-    # @api.onchange('products_category_type', 'single_category_id', 'requisition_order_ids')
-    # def _onchange_products_category_type(self):
-    #     """
-    #     Onchange to filter the product_id domain in requisition_order_ids based on products_category_type.
-    #     """
-    #     domain = {}
-    #     if self.products_category_type == 'single':
-    #         # Filter product_id by single_category_id for single category type
-    #         if self.single_category_id:
-    #             for order in self.requisition_order_ids:
-    #                 domain['product_id'] = [('categ_id', '=', self.single_category_id.id)]
-    #                 order.product_id = False  # Clear product selection when category changes
-    #     else:
-    #         # Filter product_id by product_category_id in each requisition order for multiple category type
-    #         for order in self.requisition_order_ids:
-    #             if order.product_category_id:
-    #                 domain['product_id'] = [('categ_id', '=', order.product_category_id.id)]
-    #             else:
-    #                 domain['product_id'] = []
-    #             order.product_id = False  # Clear product selection when category changes
-    #
-    #     return {'domain': domain}
 
     @api.depends('requisition_order_ids.total', 'requisition_order_ids.unit_price', 'requisition_order_ids.tax_id')
     def _compute_totals(self):
@@ -235,19 +213,32 @@ class CustomPurchaseRequisition(models.Model):
 
     # Method to create sales requisitions for vendors
     def action_submit_requisition(self):
-        # Find unique vendors in the requisition_order_ids
-        vendors = list(set(self.requisition_order_ids.mapped('vendor_id')))
+        # If supply type is 'single', only use the single_vendor_id
+        if self.supply_type == 'single':
+            # Vendor list will only contain the single_vendor_id
+            vendors = [self.single_vendor_id] if self.single_vendor_id else []
+        else:
+            # If supply type is 'multiple', gather all unique vendors from requisition_order_ids
+            vendors = list(set(self.requisition_order_ids.mapped('vendor_id')))
         for vendor in vendors:
             # Create the sales requisition for each vendor
             sales_requisition = self.env['custom.sales.requisition'].create({
-                'responsible_id': self.responsible_id.id,
                 'requisition_date': self.requisition_date,
+                'total_before_tax': self.total_before_tax,
+                'tax': self.tax,
+                'total': self.total,
+                'single_vendor_id': self.single_vendor_id.id if self.single_vendor_id else False,  # Pass the ID
+                'single_category_id': self.single_category_id.id if self.single_category_id else False,  # Pass the ID
+                'products_category_type': self.products_category_type,
+                'single_location_id': self.single_location_id.id if self.single_location_id else False,  # Pass the ID
+                'supplier_type': self.supplier_type,
+                'payment_term': self.payment_term,
+                'prepaid': self.prepaid,
                 'requisition_deadline': self.requisition_deadline,
-                'company_id': vendor.id,  # Vendor is the company here
+                'company_id': vendor.id,  # Vendor is the company here, pass the ID
                 'order_type': self.order_type,
                 'payment_method': self.payment_method,
                 'supply_type': self.supply_type,
-                'required_delivery_date': self.required_delivery_date,
                 'source_location_id': self.source_location_id.id if self.source_location_id else False,  # Pass the ID
                 'destination_location_id': self.destination_location_id.id if self.destination_location_id else False,
                 # Pass the ID
