@@ -73,7 +73,7 @@ class CustomSalesRequisition(models.Model):
     )
 
     receiving_order_ids = fields.One2many(
-        'receiving.date',  # Related model
+        'sales.receiving.date',  # Related model
         'requisition_id',  # The Many2one field in the related model
         string='Receiving Date'
     )
@@ -112,10 +112,10 @@ class CustomSalesRequisitionOrder(models.Model):
     _description = 'Custom Sales Requisition Order'
 
     requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference')
-    product_category_id = fields.Many2one('product.category', string='Product Category', required=True)
+    product_category_id = fields.Many2one('product.category', string='Product Category')
     product_id = fields.Many2one('product.product', string='Product', required=True,
                                  domain="[('categ_id', '=', product_category_id)]")
-    uom_id = fields.Many2one('uom.uom', string='Unit of Measure', related='product_id.uom_id', readonly=True)
+    uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)
     location_id = fields.Many2one('stock.location', string='Location')
@@ -148,3 +148,12 @@ class CustomSalesRequisitionOrder(models.Model):
             raise ValidationError(
                 "You cannot set a location for a 'Single Location' supply type. Please choose 'Multiple Locations' if you want to assign locations."
             )
+
+
+class ReceivingDate(models.Model):
+    _name = 'sales.receiving.date'
+    _description = 'Receiving Date'
+
+    unique_id = fields.Char(string='Unique Identifier')
+    receiving_date = fields.Date(string='Receiving Date', required=True)
+    requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference', required=True)

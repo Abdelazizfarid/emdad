@@ -10,7 +10,8 @@
                      <button name="action_approve_offer" string="Approve Offer" type="object" class="btn-primary" invisible="stage != 'requisition_sent'"/>
                     <button name="action_submit_requisition" type="object" string="Submit Requisition" class="oe_highlight" invisible="stage != 'new'"/>
                     <!-- Add the stage field with statusbar widget -->
-                    <field name="stage" widget="statusbar" statusbar_visible="new,cancel,purchase_order_created,received,requisition_sent"/>
+                    <field name="stage" widget="statusbar" statusbar_visible="new,cancel,purchase_order_created,received,requisition_sent" options="{'clickable':1}"/>
+
                 </header>
 
                 <sheet>

@@ -211,7 +211,6 @@ class CustomPurchaseRequisition(models.Model):
 
         return result
 
-    # Method to create sales requisitions for vendors
     def action_submit_requisition(self):
         # If supply type is 'single', only use the single_vendor_id
         if self.supply_type == 'single':
@@ -220,6 +219,7 @@ class CustomPurchaseRequisition(models.Model):
         else:
             # If supply type is 'multiple', gather all unique vendors from requisition_order_ids
             vendors = list(set(self.requisition_order_ids.mapped('vendor_id')))
+
         for vendor in vendors:
             # Create the sales requisition for each vendor
             sales_requisition = self.env['custom.sales.requisition'].create({
@@ -247,8 +247,14 @@ class CustomPurchaseRequisition(models.Model):
                 # Pass the ID
             })
 
-            # Create the sales requisition order lines for the vendor
-            for order in self.requisition_order_ids.filtered(lambda o: o.vendor_id == vendor):
+            if self.supply_type == 'single':
+                # No filter for single vendor, add all order lines
+                filtered_orders = self.requisition_order_ids
+            else:
+                # For multiple vendors, filter based on each vendor
+                filtered_orders = self.requisition_order_ids.filtered(lambda o: o.vendor_id.id == vendor.id)
+
+            for order in filtered_orders:
                 # Generate a unique identifier for mapping
                 unique_id = str(uuid.uuid4())  # Using UUID for unique ID generation
 
@@ -264,6 +270,19 @@ class CustomPurchaseRequisition(models.Model):
                     'quantity': order.quantity,
                     'location_id': order.location_id.id if order.location_id else False,  # Pass the ID
                     'unique_id': unique_id,
+                    'tax_id': order.tax_id.id,
+                })
+
+            for order in self.receiving_order_ids:
+                # Generate a unique identifier for mapping
+                unique_id = str(uuid.uuid4())  # Using UUID for unique ID generation
+
+                # Set the unique_id in the purchase requisition order line
+                order.write({'unique_id': unique_id})
+
+                self.env['sales.receiving.date'].sudo().create({
+                    'requisition_id': sales_requisition.id,
+                    'receiving_date': order.receiving_date,
                 })
 
         # Update stage after submission
@@ -362,5 +381,6 @@ class ReceivingDate(models.Model):
     _name = 'receiving.date'
     _description = 'Receiving Date'
 
+    unique_id = fields.Char(string='Unique Identifier')
     receiving_date = fields.Date(string='Receiving Date', required=True)
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference', required=True)
