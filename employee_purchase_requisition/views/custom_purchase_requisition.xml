@@ -74,6 +74,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                 </tree>
@@ -90,6 +91,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                     <field name="location_id"/>
@@ -109,6 +111,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                 </tree>
@@ -126,6 +129,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                     <field name="location_id"/>
@@ -144,6 +148,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                     <field name="vendor_id"/>
@@ -161,6 +166,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                     <field name="vendor_id"/>
@@ -181,6 +187,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                     <field name="vendor_id"/>
@@ -198,6 +205,7 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="unit_price" readonly="1"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
                                     <field name="vendor_id"/>

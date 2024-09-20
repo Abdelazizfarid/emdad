@@ -164,7 +164,7 @@ class CustomPurchaseRequisition(models.Model):
                         "Each requisition line must have a product category specified for this category type.")
 
         # Validate vendor for supply_type
-        if requisition.supply_type == 'single':
+        if requisition.supplier_type == 'single':
             if not requisition.single_vendor_id:
                 raise ValidationError("Vendor must be specified for single supply type.")
         else:
@@ -200,7 +200,7 @@ class CustomPurchaseRequisition(models.Model):
                             "Each requisition line must have a product category specified for this category type.")
 
             # Validate vendor for supply_type
-            if requisition.supply_type == 'single':
+            if requisition.supplier_type == 'single':
                 if not requisition.single_vendor_id:
                     raise ValidationError("Vendor must be specified for single supply type.")
             else:
@@ -213,7 +213,7 @@ class CustomPurchaseRequisition(models.Model):
 
     def action_submit_requisition(self):
         # If supply type is 'single', only use the single_vendor_id
-        if self.supply_type == 'single':
+        if self.supplier_type == 'single':
             # Vendor list will only contain the single_vendor_id
             vendors = [self.single_vendor_id] if self.single_vendor_id else []
         else:
@@ -247,7 +247,7 @@ class CustomPurchaseRequisition(models.Model):
                 # Pass the ID
             })
 
-            if self.supply_type == 'single':
+            if self.supplier_type == 'single':
                 # No filter for single vendor, add all order lines
                 filtered_orders = self.requisition_order_ids
             else:
@@ -313,7 +313,7 @@ class CustomPurchaseRequisition(models.Model):
             'company_id': self.chosen_vendor_id.id,  # The chosen vendor will be the selling company
             'date_order': fields.Datetime.now(),
             'order_line': [(0, 0, {
-                'product_id': line.product_id.id,
+                'product_id': line.vendor_product_id.id,
                 'product_uom_qty': line.quantity,
                 'price_unit': line.unit_price,
                 'name': line.description or '',
@@ -339,6 +339,7 @@ class CustomPurchaseRequisitionOrder(models.Model):
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference')
     product_category_id = fields.Many2one('product.category', string='Product Category')
     product_id = fields.Many2one('product.product', string='Product', required=True,)
+    vendor_product_id = fields.Many2one('product.product', string='Vendor Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)

@@ -104,6 +104,7 @@ class CustomSalesRequisition(models.Model):
             # Update the purchase requisition order line's unit_price
             if purchase_order_line:
                 purchase_order_line.unit_price = order.unit_price
+                purchase_order_line.vendor_product_id = order.vendor_product_id
 
         # Update the stage after submitting the offer
         self.stage = 'requisition_sent'
@@ -113,9 +114,11 @@ class CustomSalesRequisitionOrder(models.Model):
 
     requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference')
     product_category_id = fields.Many2one('product.category', string='Product Category')
-    product_id = fields.Many2one('product.product', string='Product', required=True,
+    product_id = fields.Many2one('product.product', string='Customer Product', required=True,
                                  domain="[('categ_id', '=', product_category_id)]")
+    vendor_product_id = fields.Many2one('product.product', string='Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
+
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)
     location_id = fields.Many2one('stock.location', string='Location')
