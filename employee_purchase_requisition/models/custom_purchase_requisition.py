@@ -268,7 +268,6 @@ class CustomPurchaseRequisition(models.Model):
                     'uom_id': order.uom_id.id,
                     'description': order.description,
                     'quantity': order.quantity,
-                    'location_id': order.location_id.id if order.location_id else False,  # Pass the ID
                     'unique_id': unique_id,
                     'tax_id': order.tax_id.id,
                 })
