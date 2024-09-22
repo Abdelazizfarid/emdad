@@ -87,11 +87,28 @@ class CustomSalesRequisition(models.Model):
     # Related field to get the address from the destination_location_id
     address = fields.Char(related='destination_location_id.address', string='Destination Address', readonly=True)
 
-    # Total Calculation Fields
-    total_before_tax = fields.Float(string="Total Before Tax", store=True)
-    tax = fields.Float(string="Tax", store=True)
-    total = fields.Float(string="Total", store=True)
 
+    # Total Calculation Fields
+    total_before_tax = fields.Float(string="Total Before Tax", compute="_compute_totals", store=True)
+    tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
+    total = fields.Float(string="Total", compute="_compute_totals", store=True)
+
+    @api.depends('sales_requisition_order_ids.total', 'sales_requisition_order_ids.unit_price', 'sales_requisition_order_ids.tax_id')
+    def _compute_totals(self):
+        for requisition in self:
+            total_before_tax = 0
+            total_tax = 0
+            total_amount = 0
+            for line in requisition.sales_requisition_order_ids:
+                subtotal = line.unit_price * line.quantity
+                total_before_tax += subtotal
+                if line.tax_id:
+                    tax_amount = line.tax_id.amount / 100 * subtotal
+                    total_tax += tax_amount
+            total_amount = total_before_tax + total_tax
+            requisition.total_before_tax = total_before_tax
+            requisition.tax = total_tax
+            requisition.total = total_amount
 
     def action_submit_offer(self):
         for order in self.sales_requisition_order_ids:
@@ -139,10 +156,14 @@ class CustomSalesRequisitionOrder(models.Model):
     # Unique identifier field to link with Purchase Requisition
     unique_id = fields.Char(string='Unique Identifier')
 
-    @api.depends('unit_price', 'quantity')
+    @api.depends('unit_price', 'quantity', 'tax_id')
     def _compute_total(self):
         for line in self:
-            line.total = line.unit_price * line.quantity
+            subtotal = line.unit_price * line.quantity
+            tax_amount = 0
+            if line.tax_id:
+                tax_amount = line.tax_id.amount / 100 * subtotal  # Compute tax based on tax percentage
+            line.total = subtotal + tax_amount
 
     @api.onchange('location_id')
     def _onchange_location_id(self):

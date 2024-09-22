@@ -111,13 +111,13 @@ class CustomPurchaseRequisition(models.Model):
             requisition.tax = total_tax
             requisition.total = total_amount
 
-    # Compute vendor_ids from requisition_order_ids
-    @api.depends('requisition_order_ids')
+    @api.depends('requisition_order_ids', 'supplier_type', 'single_vendor_id')
     def _compute_vendor_ids(self):
         for record in self:
-            record.vendor_ids = record.requisition_order_ids.mapped('vendor_id').ids  # Store only IDs
-            print(record.vendor_ids)
-
+            if record.supplier_type == 'single':
+                record.vendor_ids = [record.single_vendor_id.id] if record.single_vendor_id else []
+            else:
+                record.vendor_ids = record.requisition_order_ids.mapped('vendor_id').ids
 
     @api.depends('requisition_order_ids')
     def _compute_vendors_offers(self):
@@ -304,7 +304,7 @@ class CustomPurchaseRequisition(models.Model):
                 'date_planned': fields.Datetime.now(),
                 'name': line.description or '',
                 'product_uom': line.uom_id.id,
-            }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id],
+            }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id or self.chosen_vendor_id==self.single_vendor_id],
         })
 
         # Create a sales order for the chosen vendor's company
