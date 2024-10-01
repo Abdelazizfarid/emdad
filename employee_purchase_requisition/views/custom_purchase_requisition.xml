@@ -74,6 +74,11 @@
                                 <field name="vendors_offers" readonly="1"/>
                             </group>
                         </group>
+                        <group class="oe_right">
+                            <group string="Approve Some Products" col="2">
+                                <field name="approve_sum_products"/>
+                            </group>
+                        </group>
                     </group>
 
                     <div class="oe_clear"></div>
@@ -93,6 +98,7 @@
                                     <field name="uom_id"/>
                                     <field name="description"/>
                                     <field name="quantity"/>
+                                    <field name="sum_quantities" column_invisible="parent.approve_sum_products != True"/>
                                     <field name="unit_price" readonly="1"/>
                                     <field name="vendor_product_id" readonly="1"/>
                                     <field name="suggestion_product_id" readonly="1"/>

@@ -100,6 +100,7 @@ class CustomPurchaseRequisition(models.Model):
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
     notes = fields.Html(string="Notes")
+    approve_sum_products = fields.Boolean(string="Some Products")
 
     @api.onchange('supplier_type','single_vendor_id')
     def _compute_chosen_vendor(self):
@@ -326,7 +327,7 @@ class CustomPurchaseRequisition(models.Model):
             'date_order': fields.Datetime.now(),
             'order_line': [(0, 0, {
                 'product_id': line.product_id.id,
-                'product_qty': line.quantity,
+                'product_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
                 'price_unit': line.unit_price,
                 'date_planned': fields.Datetime.now(),
                 'name': line.description or '',
@@ -341,7 +342,7 @@ class CustomPurchaseRequisition(models.Model):
             'date_order': fields.Datetime.now(),
             'order_line': [(0, 0, {
                 'product_id': line.vendor_product_id.id,
-                'product_uom_qty': line.quantity,
+                'product_uom_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
                 'price_unit': line.unit_price,
                 'name': line.description or '',
                 'product_uom': line.uom_id.id,
@@ -369,6 +370,7 @@ class CustomPurchaseRequisitionOrder(models.Model):
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)
+    sum_quantities = fields.Float(string='Some Quantities')
     vendor_id = fields.Many2one('res.company', string='Vendor',)
     location_id = fields.Many2one('stock.location', string='Customer Location',domain=[('usage', '=', 'internal')])
     vendor_location_id = fields.Many2one('stock.location', string='Vendor Location',readonly=True)
@@ -392,8 +394,6 @@ class CustomPurchaseRequisitionOrder(models.Model):
 
     def copy_line(self):
         return self.copy()
-    # def copy_product(self):
-    #     return self.copy()
 
     def address_icon(self):
         return {
