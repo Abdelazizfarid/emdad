@@ -392,6 +392,8 @@ class CustomPurchaseRequisitionOrder(models.Model):
 
     def copy_line(self):
         return self.copy()
+    # def copy_product(self):
+    #     return self.copy()
 
     def address_icon(self):
         return {
