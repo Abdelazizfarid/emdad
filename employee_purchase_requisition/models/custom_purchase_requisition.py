@@ -1,11 +1,16 @@
 import uuid
 
-from odoo import models, fields, api
+from odoo import models, fields, api,_
 from odoo.exceptions import ValidationError
+
+
+
 
 class CustomPurchaseRequisition(models.Model):
     _name = 'custom.purchase.requisition'
     _description = 'Custom Purchase Requisition'
+
+    active = fields.Boolean(default=True)
     responsible_id = fields.Many2one('res.users', string='Responsible',default=lambda self: self.env.user.id)
     requisition_date = fields.Date(string='Requisition Date', required=True,default=fields.Date.today)
     received_date = fields.Date(string='Receiving Date')
@@ -26,6 +31,8 @@ class CustomPurchaseRequisition(models.Model):
         ('op_90', '90 days'),
         ('op_120', '120 days')
     ], string='Prepaid',)
+    prepaid_date = fields.Date(string='Prepaid')
+
     payment_term = fields.Selection([
         ('op_30', '30 days'),
         ('op_60', '60 days'),
@@ -92,6 +99,13 @@ class CustomPurchaseRequisition(models.Model):
     total_before_tax = fields.Float(string="Total Before Tax", compute="_compute_totals", store=True)
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
+    notes = fields.Html(string="Notes")
+
+    @api.onchange('supplier_type','single_vendor_id')
+    def _compute_chosen_vendor(self):
+        for rec in self:
+            if rec.supplier_type == 'single' and rec.single_vendor_id:
+                rec.chosen_vendor_id = rec.single_vendor_id.id
 
 
     @api.depends('requisition_order_ids.total', 'requisition_order_ids.unit_price', 'requisition_order_ids.tax_id')
@@ -167,6 +181,7 @@ class CustomPurchaseRequisition(models.Model):
         if requisition.supplier_type == 'single':
             if not requisition.single_vendor_id:
                 raise ValidationError("Vendor must be specified for single supply type.")
+            requisition.chosen_vendor_id = requisition.single_vendor_id.id
         else:
             for line in requisition.requisition_order_ids:
                 if not line.vendor_id:
@@ -219,7 +234,6 @@ class CustomPurchaseRequisition(models.Model):
         else:
             # If supply type is 'multiple', gather all unique vendors from requisition_order_ids
             vendors = list(set(self.requisition_order_ids.mapped('vendor_id')))
-
         for vendor in vendors:
             # Create the sales requisition for each vendor
             sales_requisition = self.env['custom.sales.requisition'].create({
@@ -233,7 +247,8 @@ class CustomPurchaseRequisition(models.Model):
                 'single_location_id': self.single_location_id.id if self.single_location_id else False,  # Pass the ID
                 'supplier_type': self.supplier_type,
                 'payment_term': self.payment_term,
-                'prepaid': self.prepaid,
+                'prepaid_date': self.prepaid_date,
+                'notes': self.notes,
                 'requisition_deadline': self.requisition_deadline,
                 'company_id': vendor.id,  # Vendor is the company here, pass the ID
                 'order_type': self.order_type,
@@ -270,20 +285,33 @@ class CustomPurchaseRequisition(models.Model):
                     'quantity': order.quantity,
                     'unique_id': unique_id,
                     'tax_id': order.tax_id.id,
+                    'customer_location_id':order.location_id.id
                 })
+            if self.order_type == 'scheduled':
+                filtered_products = self.receiving_order_ids.filtered(lambda o: o.vendor_id.id == vendor.id)
+                for product in filtered_products:
+                    # Generate a unique identifier for mapping
+                    unique_id = str(uuid.uuid4())  # Using UUID for unique ID generation
 
-            for order in self.receiving_order_ids:
-                # Generate a unique identifier for mapping
-                unique_id = str(uuid.uuid4())  # Using UUID for unique ID generation
+                    # Set the unique_id in the purchase requisition order line
+                    product.write({'unique_id': unique_id})
 
-                # Set the unique_id in the purchase requisition order line
-                order.write({'unique_id': unique_id})
+                    self.env['sales.receiving.date'].create({
+                        'requisition_id': sales_requisition.id,
+                        'receiving_date':product.receiving_date,
+                        'product_id': product.product_id.id,
+                        'uom_id': product.uom_id.id,
+                        'quantity': product.quantity,
+                        'unique_id': unique_id,
+                        'location_id': product.location_id.id
+                    })
 
-                self.env['sales.receiving.date'].sudo().create({
-                    'requisition_id': sales_requisition.id,
-                    'receiving_date': order.receiving_date,
-                })
+        for order in self.requisition_order_ids:
+            total_ordered = sum(order.quantity for requisition in self.requisition_order_ids if requisition.product_id == order.product_id)
+            total_received = sum(received.quantity for received in self.receiving_order_ids if received.product_id == order.product_id)
 
+            if total_received > total_ordered:
+                raise ValidationError(_("Received quantity for {} exceeds ordered quantity.").format(order.product_id.name))
         # Update stage after submission
         self.stage = 'requisition_sent'
 
@@ -330,20 +358,20 @@ class CustomPurchaseRequisition(models.Model):
             'view_mode': 'form',
             'res_id': purchase_order.id,
         }
-
-
 class CustomPurchaseRequisitionOrder(models.Model):
     _name = 'custom.purchase.requisition.order'
     _description = 'Custom Purchase Requisition Order'
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference')
     product_category_id = fields.Many2one('product.category', string='Product Category')
     product_id = fields.Many2one('product.product', string='Product', required=True,)
+    suggestion_product_id = fields.Many2one('product.product', string='Suggestion Product',readonly=True)
     vendor_product_id = fields.Many2one('product.product', string='Vendor Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)
     vendor_id = fields.Many2one('res.company', string='Vendor',)
-    location_id = fields.Many2one('stock.location', string='Location',domain=[('usage', '=', 'internal')])
+    location_id = fields.Many2one('stock.location', string='Customer Location',domain=[('usage', '=', 'internal')])
+    vendor_location_id = fields.Many2one('stock.location', string='Vendor Location',readonly=True)
     # Add a related field to get the address from the destination_location_id
     address = fields.Char(related='location_id.address', string='Destination Address', readonly=True)
 
@@ -360,6 +388,24 @@ class CustomPurchaseRequisitionOrder(models.Model):
 
     # Add unique identifier field to link with Sales Requisition
     unique_id = fields.Char(string='Unique Identifier')
+    deadline = fields.Date(string='Deadline Date')
+
+    def copy_line(self):
+        return self.copy()
+
+    def address_icon(self):
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'info' if self.location_id.address else 'danger',
+                'title': _("Destination Address") if self.location_id.address else _(""),
+                'message': f"{self.location_id.address}" if self.location_id.address else "No Address In This Location",
+                'next': {
+                    'type': 'ir.actions.act_window_close'
+                },
+            }
+        }
 
 
     @api.depends('unit_price', 'quantity', 'tax_id')
@@ -384,3 +430,12 @@ class ReceivingDate(models.Model):
     unique_id = fields.Char(string='Unique Identifier')
     receiving_date = fields.Date(string='Receiving Date', required=True)
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference', required=True)
+    product_id = fields.Many2one('product.product', string='Product', required=True)
+    uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
+    quantity = fields.Float(string='Quantity', required=True)
+    location_id = fields.Many2one('stock.location', string='Location')
+    vendor_id = fields.Many2one('res.company', string='Vendors')
+
+
+
+

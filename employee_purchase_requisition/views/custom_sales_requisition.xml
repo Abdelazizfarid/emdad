@@ -7,17 +7,19 @@
             <form string="Custom Sales Requisition">
                 <!-- Add header to the form view -->
                 <header>
-                    <button name="action_submit_offer" type="object" string="Submit Offer" class="oe_highlight" invisible="stage != 'new'"/>
+                    <button name="action_submit_offer" type="object" string="Submit Offer" class="oe_highlight"
+                            invisible="stage != 'new'"/>
                     <!-- Add the stage field with statusbar widget -->
-                    <field name="stage" widget="statusbar" statusbar_visible="new,cancel,sales_order_created,updated,requisition_sent"/>
+                    <field name="stage" widget="statusbar"
+                           statusbar_visible="new,cancel,sales_order_created,updated,requisition_sent"/>
                 </header>
                 <sheet>
-<!--                    <div class="oe_title">-->
-<!--                        <label for="responsible_id"/>-->
-<!--                        <h1>-->
-<!--                            <field name="responsible_id" placeholder="e.g. Responsible User"/>-->
-<!--                        </h1>-->
-<!--                    </div>-->
+                    <!--                    <div class="oe_title">-->
+                    <!--                        <label for="responsible_id"/>-->
+                    <!--                        <h1>-->
+                    <!--                            <field name="responsible_id" placeholder="e.g. Responsible User"/>-->
+                    <!--                        </h1>-->
+                    <!--                    </div>-->
 
                     <group>
                         <!-- Main left section -->
@@ -30,22 +32,23 @@
                             <field name="supply_type" widget="radio" readonly="1"/>
                             <field name="single_location_id" invisible="supply_type != 'single'" readonly="1"/>
                             <field name="received_date" invisible="order_type != 'one_time'" readonly="1"/>
-                            <field name="prepaid" readonly="1"/>
-                            <field name="payment_term" invisible="prepaid == False" readonly="1"/>
+                            <field name="prepaid_date" readonly="1"/>
+                            <field name="payment_term" invisible="1" readonly="1"/>
                             <field name="products_category_type" readonly="1"/>
-                            <field name="single_category_id" invisible="products_category_type != 'single'" readonly="1"/>
+                            <field name="single_category_id" invisible="products_category_type != 'single'"
+                                   readonly="1"/>
                             <field name="supplier_type" readonly="1"/>
                             <field name="single_vendor_id" invisible="supplier_type != 'single'" readonly="1"/>
                         </group>
 
-                         <!-- Picking details on the right section -->
-                        <group class="oe_right">
+                        <!-- Picking details on the right section -->
+                        <group class="oe_right" invisible="1">
                             <group string="Picking Details" col="2">
                                 <field name="source_location_id" readonly="1"/>
-<!--                                <field name="destination_location_id"-->
-<!--                                       invisible="supply_type !='single'" readonly="1"/>-->
-<!--                                <field name="address" invisible="supply_type !='single'" readonly="1"/>-->
-<!--                                <field name="delivery_to_id" readonly="1"/>-->
+                                <!--                                <field name="destination_location_id"-->
+                                <!--                                       invisible="supply_type !='single'" readonly="1"/>-->
+                                <!--                                <field name="address" invisible="supply_type !='single'" readonly="1"/>-->
+                                <!--                                <field name="delivery_to_id" readonly="1"/>-->
                                 <field name="internal_picking_id" readonly="1"/>
                             </group>
                         </group>
@@ -55,161 +58,69 @@
 
                     <!-- Sales Requisition Orders in a tab with inline editing -->
                     <notebook>
-                         <!-- 1. Single Supplier, Single Category, Single Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'single'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
+                        <!-- 1. Single Supplier, Single Category, Single Location -->
+                        <page string="Requisition Orders">
+                            <!--                              invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'single'">-->
+                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}"
+                                   widget="one2many_list" editable="bottom" options="{'create': False}">
                                 <tree string="Requisition Orders" editable="bottom">
                                     <!-- No product_category_id, location_id, or address -->
-                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>
+                                    <field name="product_category_id" readonly="1"
+                                           column_invisible="parent.products_category_type != 'multiple'"/>
+                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"
+                                           readonly="1"/>
                                     <field name="uom_id" readonly="1"/>
                                     <field name="description" readonly="1"/>
                                     <field name="quantity" readonly="1"/>
                                     <field name="unit_price"/>
                                     <field name="vendor_product_id"/>
+                                    <field name="suggestion_product_id"/>
                                     <field name="total" readonly="1"/>
                                     <field name="tax_id" readonly="1"/>
+                                    <field name="location_id" column_invisible="parent.supply_type != 'multiple'"/>
+                                    <field name="customer_location_id"
+                                           column_invisible="parent.supply_type != 'multiple'"/>
+                                    <button name="address_icon" string="Address" type="object" icon="fa-address-card"
+                                            invisible="parent.supply_type != 'multiple'"/>
+                                    <button name="copy_product" string="Duplicate Product" type="object" class="oe_highlight"/>
+                                    <field name="address" readonly="1" column_invisible="1"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Prepaid">
+                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}"
+                                   widget="one2many_list" editable="bottom">
+                                <tree string="Deadline Date" editable="bottom">
+                                    <field name="deadline"/>
+                                    <field name="vendor_id"/>
                                 </tree>
                             </field>
                         </page>
 
-                        <!-- 2. Single Supplier, Single Category, Multiple Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'multiple'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <!-- No product_category_id -->
-                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                    <field name="location_id"/>
-                                    <field name="address" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
 
-                        <!-- 3. Single Supplier, Multiple Category, Single Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'multiple' or supply_type != 'single'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <!-- No location_id or address -->
-                                    <field name="product_category_id" readonly="1"/>
-                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
-
-                        <!-- 4. Single Supplier, Multiple Category, Multiple Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'multiple' or supply_type != 'multiple'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <!-- No vendor_id -->
-                                    <field name="product_category_id" readonly="1"/>
-                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                    <field name="location_id"/>
-                                    <field name="address" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
-
-                        <!-- 5. Multiple Supplier, Single Category, Single Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'single' or supply_type != 'single'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <!-- No product_category_id, location_id, or address -->
-                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
-
-                        <!-- 6. Multiple Supplier, Single Category, Multiple Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'single' or supply_type != 'multiple'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <!-- No product_category_id -->
-                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                    <field name="location_id"/>
-                                    <field name="address" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
-
-                        <!-- 7. Multiple Supplier, Multiple Category, Single Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'multiple' or supply_type != 'single'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <!-- No location_id or address -->
-                                    <field name="product_category_id" readonly="1"/>
-                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
-
-                        <!-- 8. Multiple Supplier, Multiple Category, Multiple Location -->
-                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'multiple' or supply_type != 'multiple'">
-                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">
-                                <tree string="Requisition Orders" editable="bottom">
-                                    <field name="product_category_id"/>
-                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
-                                    <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
-                                    <field name="location_id"/>
-                                    <field name="address" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
                         <page string="Receiving Date" invisible="order_type == 'one_time'">
                             <field name="receiving_order_ids" widget="one2many_list" editable="bottom" readonly="1">
                                 <tree string="Receiving Date" editable="bottom">
                                     <field name="receiving_date"/>
+                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"/>
+                                    <field name="uom_id"/>
+                                    <field name="quantity"/>
+                                    <field name="location_id"/>
+                                    <field name="vendor_id"/>
                                 </tree>
                             </field>
                         </page>
+
+                        <page string="Notes">
+                            <group>
+                                <group>
+                                    <field name="notes"/>
+                                </group>
+                            </group>
+                        </page>
+
                     </notebook>
-                     <group class="oe_right" col="2">
+                    <group class="oe_right" col="2">
                         <group>
                             <field name="total_before_tax" readonly="1" string="Total Before Tax"/>
                             <field name="tax" readonly="1" string="Tax"/>
@@ -252,17 +163,149 @@
         </field>
     </record>
 
-<!--    &lt;!&ndash; Menu item to access Sales Requisitions under the parent menu &ndash;&gt;-->
-<!--    <menuitem id="menu_custom_sales_requisition_root"-->
-<!--              name="Sales Requisitions"-->
-<!--              parent="employee_purchase_requisition_menu_root"-->
-<!--              sequence="11"-->
-<!--              action="action_custom_sales_requisition"/>-->
+    <!--    &lt;!&ndash; Menu item to access Sales Requisitions under the parent menu &ndash;&gt;-->
+    <!--    <menuitem id="menu_custom_sales_requisition_root"-->
+    <!--              name="Sales Requisitions"-->
+    <!--              parent="employee_purchase_requisition_menu_root"-->
+    <!--              sequence="11"-->
+    <!--              action="action_custom_sales_requisition"/>-->
 
-     <!-- Add a menu item under Odoo Sales module -->
+    <!-- Add a menu item under Odoo Sales module -->
     <menuitem id="menu_custom_sales_requisition_in_sales"
               name="Sales Requisitions"
               parent="sale.sale_order_menu"
               action="action_custom_sales_requisition"
               sequence="12"/>
 </odoo>
+
+
+        <!-- 2. Single Supplier, Single Category, Multiple Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'multiple'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    &lt;!&ndash; No product_category_id &ndash;&gt;-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                    <field name="location_id"/>-->
+        <!--                                    <field name="address" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+
+        <!-- 3. Single Supplier, Multiple Category, Single Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'multiple' or supply_type != 'single'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    &lt;!&ndash; No location_id or address &ndash;&gt;-->
+        <!--                                    <field name="product_category_id" readonly="1"/>-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+
+        <!-- 4. Single Supplier, Multiple Category, Multiple Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'single' or products_category_type != 'multiple' or supply_type != 'multiple'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    &lt;!&ndash; No vendor_id &ndash;&gt;-->
+        <!--                                    <field name="product_category_id" readonly="1"/>-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                    <field name="location_id"/>-->
+        <!--                                    <field name="address" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+
+        <!-- 5. Multiple Supplier, Single Category, Single Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'single' or supply_type != 'single'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    &lt;!&ndash; No product_category_id, location_id, or address &ndash;&gt;-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+
+        <!-- 6. Multiple Supplier, Single Category, Multiple Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'single' or supply_type != 'multiple'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    &lt;!&ndash; No product_category_id &ndash;&gt;-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                    <field name="location_id"/>-->
+        <!--                                    <field name="address" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+
+        <!-- 7. Multiple Supplier, Multiple Category, Single Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'multiple' or supply_type != 'single'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    &lt;!&ndash; No location_id or address &ndash;&gt;-->
+        <!--                                    <field name="product_category_id" readonly="1"/>-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+
+        <!-- 8. Multiple Supplier, Multiple Category, Multiple Location -->
+        <!--                        <page string="Requisition Orders" invisible="supplier_type != 'multiple' or products_category_type != 'multiple' or supply_type != 'multiple'">-->
+        <!--                            <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}" widget="one2many_list" editable="bottom" options="{'create': False}">-->
+        <!--                                <tree string="Requisition Orders" editable="bottom">-->
+        <!--                                    <field name="product_category_id"/>-->
+        <!--                                    <field name="product_id" domain="[('categ_id', '=', product_category_id)]" readonly="1"/>-->
+        <!--                                    <field name="uom_id" readonly="1"/>-->
+        <!--                                    <field name="description" readonly="1"/>-->
+        <!--                                    <field name="quantity" readonly="1"/>-->
+        <!--                                    <field name="unit_price"/>-->
+        <!--                                    <field name="vendor_product_id"/>-->
+        <!--                                    <field name="total" readonly="1"/>-->
+        <!--                                    <field name="tax_id" readonly="1"/>-->
+        <!--                                    <field name="location_id"/>-->
+        <!--                                    <field name="address" readonly="1"/>-->
+        <!--                                </tree>-->
+        <!--                            </field>-->
+        <!--                        </page>-->
+

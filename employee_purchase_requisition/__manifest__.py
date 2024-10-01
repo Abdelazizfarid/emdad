@@ -32,7 +32,7 @@
     'company': 'Cybrosys Techno Solutions',
     'maintainer': 'Cybrosys Techno Solutions',
     'website': 'https://www.cybrosys.com',
-    'depends': ['base', 'hr', 'stock', 'purchase'],
+    'depends': ['base', 'hr', 'stock', 'purchase','product'],
     'data': [
         'security/employee_purchase_requisition_groups.xml',
         'security/employee_purchase_requisition_security.xml',

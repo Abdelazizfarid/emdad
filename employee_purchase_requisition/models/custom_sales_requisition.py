@@ -1,10 +1,13 @@
-from odoo import models, fields, api
+from odoo import models, fields, api,_
 from odoo.exceptions import ValidationError
+
+
 
 class CustomSalesRequisition(models.Model):
     _name = 'custom.sales.requisition'
     _description = 'Custom Sales Requisition'
 
+    active = fields.Boolean(default=True)
     responsible_id = fields.Many2one('res.users', string='Responsible', required=True, default=lambda self: self.env.user.id)
     requisition_date = fields.Date(string='Requisition Date', required=True, default=fields.Date.today)
     received_date = fields.Date(string='Received Date')
@@ -27,6 +30,7 @@ class CustomSalesRequisition(models.Model):
         ('op_90', '90 days'),
         ('op_120', '120 days')
     ], string='Prepaid')
+    prepaid_date = fields.Date(string='Prepaid')
 
     payment_term = fields.Selection([
         ('op_30', '30 days'),
@@ -92,6 +96,7 @@ class CustomSalesRequisition(models.Model):
     total_before_tax = fields.Float(string="Total Before Tax", compute="_compute_totals", store=True)
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
+    notes = fields.Html(string="Notes",readonly=True)
 
     @api.depends('sales_requisition_order_ids.total', 'sales_requisition_order_ids.unit_price', 'sales_requisition_order_ids.tax_id')
     def _compute_totals(self):
@@ -122,6 +127,9 @@ class CustomSalesRequisition(models.Model):
             if purchase_order_line:
                 purchase_order_line.unit_price = order.unit_price
                 purchase_order_line.vendor_product_id = order.vendor_product_id
+                purchase_order_line.vendor_location_id = order.location_id
+                purchase_order_line.deadline = order.deadline
+                purchase_order_line.vendor_id = order.vendor_id
 
         # Update the stage after submitting the offer
         self.stage = 'requisition_sent'
@@ -133,12 +141,14 @@ class CustomSalesRequisitionOrder(models.Model):
     product_category_id = fields.Many2one('product.category', string='Product Category')
     product_id = fields.Many2one('product.product', string='Customer Product', required=True,
                                  domain="[('categ_id', '=', product_category_id)]")
+    suggestion_product_id = fields.Many2one('product.product', string='Suggestion Product')
     vendor_product_id = fields.Many2one('product.product', string='Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
 
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)
-    location_id = fields.Many2one('stock.location', string='Location')
+    location_id = fields.Many2one('stock.location', string='Vendor Location')
+    customer_location_id = fields.Many2one('stock.location', string='Customer Location',readonly=True)
 
     # Add a related field to get the address from the location_id
     address = fields.Char(related='location_id.address', string='Destination Address', readonly=True)
@@ -155,6 +165,8 @@ class CustomSalesRequisitionOrder(models.Model):
 
     # Unique identifier field to link with Purchase Requisition
     unique_id = fields.Char(string='Unique Identifier')
+    vendor_id = fields.Many2one('res.company', string="Vendor")
+    deadline = fields.Date(string='Deadline Date')
 
     @api.depends('unit_price', 'quantity', 'tax_id')
     def _compute_total(self):
@@ -173,6 +185,26 @@ class CustomSalesRequisitionOrder(models.Model):
                 "You cannot set a location for a 'Single Location' supply type. Please choose 'Multiple Locations' if you want to assign locations."
             )
 
+    def address_icon(self):
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'info' if self.location_id else 'danger',
+                'title': _("Destination Address") if self.location_id else _(""),
+                'message': f"{self.location_id.address}" if self.location_id else "No Location Chosen",
+                'next': {
+                    'type': 'ir.actions.act_window_close'
+                },
+            }
+        }
+
+    def copy_product(self):
+        product_obj = self.env['product.product'].browse(self.product_id.id)
+        copied_product = product_obj.sudo().copy({
+            'company_id':self.requisition_id.company_id.id,'name':self.product_id.name
+        })
+        return copied_product
 
 class ReceivingDate(models.Model):
     _name = 'sales.receiving.date'
@@ -181,3 +213,9 @@ class ReceivingDate(models.Model):
     unique_id = fields.Char(string='Unique Identifier')
     receiving_date = fields.Date(string='Receiving Date', required=True)
     requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference', required=True)
+    product_id = fields.Many2one('product.product', string='Product')
+    uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
+    quantity = fields.Float(string='Quantity')
+    location_id = fields.Many2one('stock.location', string='Location')
+    vendor_id = fields.Many2one('res.company', string='Vendors')
+
