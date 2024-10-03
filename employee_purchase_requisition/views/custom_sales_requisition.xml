@@ -32,13 +32,14 @@
                             <field name="supply_type" widget="radio" readonly="1"/>
                             <field name="single_location_id" invisible="supply_type != 'single'" readonly="1"/>
                             <field name="received_date" invisible="order_type != 'one_time'" readonly="1"/>
-                            <field name="prepaid_date" readonly="1"/>
+                            <field name="prepaid_date" readonly="1" invisible="1"/>
                             <field name="payment_term" invisible="1" readonly="1"/>
                             <field name="products_category_type" readonly="1"/>
                             <field name="single_category_id" invisible="products_category_type != 'single'"
                                    readonly="1"/>
                             <field name="supplier_type" readonly="1"/>
-                            <field name="single_vendor_id" invisible="supplier_type != 'single'" readonly="1"/>
+                            <field name="single_vendor_id" invisible="supplier_type != 'single' or is_service == True" readonly="1"/>
+                            <field name="unique_id" invisible="1"/>
                         </group>
 
                         <!-- Picking details on the right section -->
@@ -52,6 +53,11 @@
                                 <field name="internal_picking_id" readonly="1"/>
                             </group>
                         </group>
+                        <group class="oe_right">
+                            <group string="Services" col="2">
+                                <field name="is_service" readonly="1"/>
+                            </group>
+                        </group>
                     </group>
 
                     <div class="oe_clear"></div>
@@ -62,27 +68,26 @@
                         <page string="Requisition Orders">
                             <!--                              invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'single'">-->
                             <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}"
-                                   widget="one2many_list" editable="bottom" options="{'create': False}">
+                                   widget="one2many_list" editable="bottom">
                                 <tree string="Requisition Orders" editable="bottom">
                                     <!-- No product_category_id, location_id, or address -->
-                                    <field name="product_category_id" readonly="1"
-                                           column_invisible="parent.products_category_type != 'multiple'"/>
-                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"
-                                           readonly="1"/>
-                                    <field name="uom_id" readonly="1"/>
-                                    <field name="description" readonly="1"/>
-                                    <field name="quantity" readonly="1"/>
+                                    <field name="product_category_id"
+                                           column_invisible="parent.products_category_type != 'multiple'" readonly="1"/>
+                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" readonly="1"/>
+                                    <field name="vendor_product_id" domain="[('categ_id', '=', parent.single_category_id)]"/>
+                                    <field name="uom_id" readonly="parent.is_service != True"/>
+                                    <field name="description" readonly="parent.is_service != True"/>
+                                    <field name="quantity" readonly="parent.is_service != True"/>
                                     <field name="unit_price"/>
-                                    <field name="vendor_product_id"/>
                                     <field name="suggestion_product_id"/>
-                                    <field name="total" readonly="1"/>
-                                    <field name="tax_id" readonly="1"/>
+                                    <field name="total" readonly="parent.is_service != True"/>
+                                    <field name="tax_id" readonly="parent.is_service != True"/>
                                     <field name="location_id" column_invisible="parent.supply_type != 'multiple'"/>
                                     <field name="customer_location_id"
                                            column_invisible="parent.supply_type != 'multiple'"/>
                                     <button name="address_icon" string="Address" type="object" icon="fa-address-card"
                                             invisible="parent.supply_type != 'multiple'"/>
-                                    <button name="copy_product" string="Duplicate Product" type="object" class="oe_highlight"/>
+                                    <button name="copy_product" string="Duplicate Product" type="object" class="oe_highlight" invisible="parent.is_service == True"/>
                                     <field name="address" readonly="1" column_invisible="1"/>
                                 </tree>
                             </field>

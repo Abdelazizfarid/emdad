@@ -97,7 +97,8 @@ class CustomSalesRequisition(models.Model):
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
     notes = fields.Html(string="Notes",readonly=True)
-
+    is_service = fields.Boolean("Is Service")
+    unique_id = fields.Char()
     @api.depends('sales_requisition_order_ids.total', 'sales_requisition_order_ids.unit_price', 'sales_requisition_order_ids.tax_id')
     def _compute_totals(self):
         for requisition in self:
@@ -116,22 +117,43 @@ class CustomSalesRequisition(models.Model):
             requisition.total = total_amount
 
     def action_submit_offer(self):
-        for order in self.sales_requisition_order_ids:
-            # Search for the matching purchase requisition order lines based on the unique_id
-            purchase_order_line = self.env['custom.purchase.requisition.order'].search([
-                ('unique_id', '=', order.unique_id),
-                ('requisition_id', '!=', False)
-            ], limit=1)
+        if not self.is_service:
+            for order in self.sales_requisition_order_ids:
+                purchase_order_line = self.env['custom.purchase.requisition.order'].search([
+                    ('unique_id', '=', order.unique_id),
+                    ('requisition_id', '!=', False)
+                ], limit=1)
+                if not order.product_id and not self.is_service:
+                    raise ValidationError(_("Customer Product Is Required"))
+                # Update the purchase requisition order line's unit_price
+                if purchase_order_line:
+                    purchase_order_line.unit_price = order.unit_price
+                    purchase_order_line.vendor_product_id = order.vendor_product_id
+                    purchase_order_line.suggestion_product_id = order.suggestion_product_id
+                    purchase_order_line.vendor_location_id = order.location_id
+                    purchase_order_line.deadline = order.deadline
+                    purchase_order_line.vendor_id = order.vendor_id
+        else:
+            for rec in self:
+                purchase_order = self.env['custom.purchase.requisition'].search([
+                    ('unique_id', '=', rec.unique_id)
+                ], limit=1)
 
-            # Update the purchase requisition order line's unit_price
-            if purchase_order_line:
-                purchase_order_line.unit_price = order.unit_price
-                purchase_order_line.vendor_product_id = order.vendor_product_id
-                purchase_order_line.vendor_location_id = order.location_id
-                purchase_order_line.deadline = order.deadline
-                purchase_order_line.vendor_id = order.vendor_id
+                if purchase_order:
+                    for line_sale in rec.sales_requisition_order_ids:
+                        # Create a new line for each sale line in the purchase requisition order
+                        self.env['custom.purchase.requisition.order'].create({
+                            'vendor_product_id': line_sale.vendor_product_id.id,
+                            'uom_id': line_sale.uom_id.id,
+                            'description': line_sale.description,
+                            'quantity': line_sale.quantity,
+                            'unit_price': line_sale.unit_price,
+                            'total': line_sale.total,
+                            'tax_id': line_sale.tax_id.id,
+                            'vendor_id': rec.company_id.id,
+                            'requisition_id': purchase_order.id  # Link to the current purchase order
+                        })
 
-        # Update the stage after submitting the offer
         self.stage = 'requisition_sent'
 class CustomSalesRequisitionOrder(models.Model):
     _name = 'custom.sales.requisition.order'
@@ -139,10 +161,10 @@ class CustomSalesRequisitionOrder(models.Model):
 
     requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference')
     product_category_id = fields.Many2one('product.category', string='Product Category')
-    product_id = fields.Many2one('product.product', string='Customer Product', required=True,
+    product_id = fields.Many2one('product.product', string='Customer Product',
                                  domain="[('categ_id', '=', product_category_id)]")
     suggestion_product_id = fields.Many2one('product.product', string='Suggestion Product')
-    vendor_product_id = fields.Many2one('product.product', string='Product')
+    vendor_product_id = fields.Many2one('product.product', string=' Vendor Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
 
     description = fields.Text(string='Description')

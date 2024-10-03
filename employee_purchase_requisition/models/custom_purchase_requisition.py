@@ -3,8 +3,10 @@ import uuid
 from odoo import models, fields, api,_
 from odoo.exceptions import ValidationError
 
+class ResCompany(models.Model):
+    _inherit = 'res.company'
 
-
+    unique_id = fields.Char()
 
 class CustomPurchaseRequisition(models.Model):
     _name = 'custom.purchase.requisition'
@@ -95,12 +97,16 @@ class CustomPurchaseRequisition(models.Model):
     vendors_offers = fields.Text(string='Vendors Offers', compute='_compute_vendors_offers')
     # Chosen vendor field
     vendor_ids = fields.Many2many('res.company', string='Vendors', compute='_compute_vendor_ids')
+    service_vendor_ids = fields.Many2many('res.company','service_rel', string='Service Vendors')
     chosen_vendor_id = fields.Many2one('res.company', string='Chosen Vendor', domain="[('id', 'in', vendor_ids)]")
+    chosen_service_vendor_id = fields.Many2one('res.company',relation='other_rel', string='Chosen Service Vendor', domain="[('id', 'in', service_vendor_ids)]")
     total_before_tax = fields.Float(string="Total Before Tax", compute="_compute_totals", store=True)
     tax = fields.Float(string="Tax", compute="_compute_totals", store=True)
     total = fields.Float(string="Total", compute="_compute_totals", store=True)
     notes = fields.Html(string="Notes")
+    unique_id = fields.Char()
     approve_sum_products = fields.Boolean(string="Some Products")
+    is_service = fields.Boolean("Is Service")
 
     @api.onchange('supplier_type','single_vendor_id')
     def _compute_chosen_vendor(self):
@@ -156,6 +162,7 @@ class CustomPurchaseRequisition(models.Model):
 
     @api.model
     def create(self, vals):
+        # sourcery skip: merge-duplicate-blocks, reintroduce-else, remove-redundant-if, split-or-ifs, swap-if-else-branches
         # Call super to create the record first
         requisition = super(CustomPurchaseRequisition, self).create(vals)
 
@@ -179,7 +186,7 @@ class CustomPurchaseRequisition(models.Model):
                         "Each requisition line must have a product category specified for this category type.")
 
         # Validate vendor for supply_type
-        if requisition.supplier_type == 'single':
+        if requisition.supplier_type == 'single' and not requisition.is_service:
             if not requisition.single_vendor_id:
                 raise ValidationError("Vendor must be specified for single supply type.")
             requisition.chosen_vendor_id = requisition.single_vendor_id.id
@@ -187,6 +194,8 @@ class CustomPurchaseRequisition(models.Model):
             for line in requisition.requisition_order_ids:
                 if not line.vendor_id:
                     raise ValidationError("Each requisition line must have a vendor specified for this supply type.")
+        if requisition.is_service and not requisition.service_vendor_ids:
+            raise ValidationError("You Must Choose Vendors You Want Their Offers")
 
         return requisition
 
@@ -216,7 +225,7 @@ class CustomPurchaseRequisition(models.Model):
                             "Each requisition line must have a product category specified for this category type.")
 
             # Validate vendor for supply_type
-            if requisition.supplier_type == 'single':
+            if requisition.supplier_type == 'single' and not requisition.is_service:
                 if not requisition.single_vendor_id:
                     raise ValidationError("Vendor must be specified for single supply type.")
             else:
@@ -229,15 +238,17 @@ class CustomPurchaseRequisition(models.Model):
 
     def action_submit_requisition(self):
         # If supply type is 'single', only use the single_vendor_id
-        if self.supplier_type == 'single':
+        self.unique_id = str(uuid.uuid4())
+        if self.supplier_type == 'single' and not self.is_service:
             # Vendor list will only contain the single_vendor_id
             vendors = [self.single_vendor_id] if self.single_vendor_id else []
-        else:
+        elif self.supply_type == 'multiple' and not self.is_service:
             # If supply type is 'multiple', gather all unique vendors from requisition_order_ids
             vendors = list(set(self.requisition_order_ids.mapped('vendor_id')))
+        else:
+            vendors = self.service_vendor_ids
         for vendor in vendors:
-            # Create the sales requisition for each vendor
-            sales_requisition = self.env['custom.sales.requisition'].create({
+            sales_requisition = self.env['custom.sales.requisition'].sudo().create({
                 'requisition_date': self.requisition_date,
                 'total_before_tax': self.total_before_tax,
                 'tax': self.tax,
@@ -250,6 +261,7 @@ class CustomPurchaseRequisition(models.Model):
                 'payment_term': self.payment_term,
                 'prepaid_date': self.prepaid_date,
                 'notes': self.notes,
+                'unique_id': self.unique_id,
                 'requisition_deadline': self.requisition_deadline,
                 'company_id': vendor.id,  # Vendor is the company here, pass the ID
                 'order_type': self.order_type,
@@ -262,7 +274,9 @@ class CustomPurchaseRequisition(models.Model):
                 'internal_picking_id': self.internal_picking_id.id if self.internal_picking_id else False,
                 # Pass the ID
             })
-
+            sales_requisition.is_service = (
+                sales_requisition.company_id in self.service_vendor_ids
+            )
             if self.supplier_type == 'single':
                 # No filter for single vendor, add all order lines
                 filtered_orders = self.requisition_order_ids
@@ -277,7 +291,7 @@ class CustomPurchaseRequisition(models.Model):
                 # Set the unique_id in the purchase requisition order line
                 order.write({'unique_id': unique_id})
 
-                self.env['custom.sales.requisition.order'].create({
+                self.env['custom.sales.requisition.order'].sudo().create({
                     'requisition_id': sales_requisition.id,
                     'product_category_id': order.product_category_id.id,
                     'product_id': order.product_id.id,
@@ -297,7 +311,7 @@ class CustomPurchaseRequisition(models.Model):
                     # Set the unique_id in the purchase requisition order line
                     product.write({'unique_id': unique_id})
 
-                    self.env['sales.receiving.date'].create({
+                    self.env['sales.receiving.date'].sudo().create({
                         'requisition_id': sales_requisition.id,
                         'receiving_date':product.receiving_date,
                         'product_id': product.product_id.id,
@@ -317,54 +331,64 @@ class CustomPurchaseRequisition(models.Model):
         self.stage = 'requisition_sent'
 
     def action_approve_offer(self):
-        if not self.chosen_vendor_id:
+        if self.is_service and not self.chosen_service_vendor_id:
             raise ValidationError("Please select a vendor to approve the offer.")
-
+        if not self.is_service and not self.chosen_vendor_id:
+            raise ValidationError("Please select a vendor to approve the offer.")
         # Create a purchase order for the chosen vendor
-        purchase_order = self.env['purchase.order'].sudo().create({
-            'partner_id':  self.chosen_vendor_id.partner_id.id,
-            'company_id': self.company_id.id,
-            'date_order': fields.Datetime.now(),
-            'order_line': [(0, 0, {
-                'product_id': line.product_id.id,
-                'product_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
-                'price_unit': line.unit_price,
-                'date_planned': fields.Datetime.now(),
-                'name': line.description or '',
-                'product_uom': line.uom_id.id,
-            }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id or self.chosen_vendor_id==self.single_vendor_id],
-        })
-
-        # Create a sales order for the chosen vendor's company
-        self.env['sale.order'].sudo().create({
-            'partner_id': self.company_id.partner_id.id,  # The current company will be the customer
-            'company_id': self.chosen_vendor_id.id,  # The chosen vendor will be the selling company
-            'date_order': fields.Datetime.now(),
-            'order_line': [(0, 0, {
-                'product_id': line.vendor_product_id.id,
-                'product_uom_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
-                'price_unit': line.unit_price,
-                'name': line.description or '',
-                'product_uom': line.uom_id.id,
-            }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id],
-        })
-
-        # Update the stage to indicate the offer is approved
-        self.stage = 'purchase_order_created'
-
-        return {
-            'name': 'Purchase Order',
-            'type': 'ir.actions.act_window',
-            'res_model': 'purchase.order',
-            'view_mode': 'form',
-            'res_id': purchase_order.id,
-        }
+        if not self.is_service:
+            purchase_order = self.env['purchase.order'].sudo().create({
+                'partner_id':  self.chosen_vendor_id.partner_id.id,
+                'company_id': self.company_id.id,
+                'date_order': fields.Datetime.now(),
+                'order_line': [(0, 0, {
+                    'product_id': line.product_id.id,
+                    'product_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
+                    'price_unit': line.unit_price,
+                    'date_planned': fields.Datetime.now(),
+                    'name': line.description or '',
+                    'product_uom': line.uom_id.id,
+                }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id or self.chosen_vendor_id==self.single_vendor_id],
+            })
+            self.env['sale.order'].sudo().create({
+                'partner_id': self.company_id.partner_id.id,  # The current company will be the customer
+                'company_id': self.chosen_vendor_id.id,  # The chosen vendor will be the selling company
+                'date_order': fields.Datetime.now(),
+                'order_line': [(0, 0, {
+                    'product_id': line.vendor_product_id.id,
+                    'product_uom_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
+                    'price_unit': line.unit_price,
+                    'name': line.description or '',
+                    'product_uom': line.uom_id.id,
+                }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id],
+            })
+            self.stage = 'purchase_order_created'
+            return {
+                'name': 'Purchase Order',
+                'type': 'ir.actions.act_window',
+                'res_model': 'purchase.order',
+                'view_mode': 'form',
+                'res_id': purchase_order.id,
+            }
+        else:
+            sale_order = self.env['sale.order'].sudo().create({
+                'partner_id': self.company_id.partner_id.id,  # The current company will be the customer
+                'company_id': self.chosen_service_vendor_id.id,  # The chosen vendor will be the selling company
+                'date_order': fields.Datetime.now(),
+                'order_line': [(0, 0, {
+                    'product_id': line.vendor_product_id.id,
+                    'product_uom_qty': line.quantity,
+                    'price_unit': line.unit_price,
+                    'name': line.description or '',
+                    'product_uom': line.uom_id.id,
+                }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_service_vendor_id],
+            })
 class CustomPurchaseRequisitionOrder(models.Model):
     _name = 'custom.purchase.requisition.order'
     _description = 'Custom Purchase Requisition Order'
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference')
     product_category_id = fields.Many2one('product.category', string='Product Category')
-    product_id = fields.Many2one('product.product', string='Product', required=True,)
+    product_id = fields.Many2one('product.product', string='Product')
     suggestion_product_id = fields.Many2one('product.product', string='Suggestion Product',readonly=True)
     vendor_product_id = fields.Many2one('product.product', string='Vendor Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')

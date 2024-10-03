@@ -34,9 +34,13 @@
                     <!-- Hidden field for vendors -->
                     <field name="vendor_ids" invisible="1"/>
                     <div class="oe_title">
-                        <label for="chosen_vendor_id"/>
+                        <label for="chosen_vendor_id" invisible="is_service == True"/>
                         <h1>
-                            <field name="chosen_vendor_id"/>
+                            <field name="chosen_vendor_id" invisible="is_service == True"/>
+                        </h1>
+                        <label for="chosen_service_vendor_id" invisible="is_service == False"/>
+                        <h1>
+                            <field name="chosen_service_vendor_id" invisible="is_service == False"/>
                         </h1>
                     </div>
 
@@ -52,12 +56,13 @@
                             <field name="supply_type" widget="radio"/>
                             <field name="single_location_id" invisible="supply_type != 'single'"/>
                             <field name="received_date" invisible="order_type != 'one_time'"/>
-                            <field name="prepaid_date"/>
+                            <field name="prepaid_date" invisible="1"/>
                             <field name="payment_term" invisible="1"/>
                             <field name="products_category_type"/>
                             <field name="single_category_id" invisible="products_category_type != 'single'"/>
                             <field name="supplier_type"/>
-                            <field name="single_vendor_id" invisible="supplier_type != 'single'"/>
+                            <field name="single_vendor_id" invisible="supplier_type != 'single' or is_service == True"/>
+                            <field name="unique_id" invisible="1"/>
 
 
                             <!--                            <field name="required_delivery_date"/>-->
@@ -78,6 +83,10 @@
                             <group string="Approve Some Products" col="2">
                                 <field name="approve_sum_products"/>
                             </group>
+                            <group string="Services" col="2">
+                                <field name="is_service"/>
+                                <field name="service_vendor_ids" widget="many2many_tags" invisible="is_service != True"/>
+                            </group>
                         </group>
                     </group>
 
@@ -89,18 +98,18 @@
                         <page string="Requisition Orders">
                             <!--                              invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'multiple'"-->
                             <field name="requisition_order_ids" context="{'default_requisition_id': active_id}"
-                                   widget="one2many_list" editable="bottom">
+                                   widget="one2many_list" editable="bottom" readonly="is_service == True">
                                 <tree string="Requisition Orders" editable="bottom">
                                     <!-- No product_category_id -->
                                     <field name="product_category_id"
                                            column_invisible="parent.products_category_type != 'multiple'"/>
-                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"/>
+                                    <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]" column_invisible="parent.is_service == True"/>
+                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="uom_id"/>
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="sum_quantities" column_invisible="parent.approve_sum_products != True"/>
                                     <field name="unit_price" readonly="1"/>
-                                    <field name="vendor_product_id" readonly="1"/>
                                     <field name="suggestion_product_id" readonly="1"/>
                                     <field name="total"/>
                                     <field name="tax_id"/>
@@ -108,7 +117,7 @@
                                     <field name="vendor_location_id"
                                            column_invisible="parent.supply_type != 'multiple'"/>
                                     <field name="address" column_invisible="1"/>
-                                    <field name="vendor_id" column_invisible="parent.supplier_type != 'multiple'"/>
+                                    <field name="vendor_id" column_invisible="parent.supplier_type != 'multiple' and parent.is_service != True"/>
                                     <button name="copy_line" string="Duplicate" type="object" class="oe_highlight"/>
                                     <button name="address_icon" string="Address" type="object" icon="fa-address-card"
                                             invisible="parent.supply_type != 'multiple'"/>
