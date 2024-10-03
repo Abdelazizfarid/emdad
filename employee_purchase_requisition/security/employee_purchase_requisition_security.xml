@@ -30,4 +30,10 @@
         <field ref="model_employee_purchase_requisition" name="model_id"/>
         <field name="domain_force">[('company_id', '=', company_id)]</field>
     </record>
+
+    <record id="sales_requisition_company_rule" model="ir.rule">
+        <field name="name">Sales Requisition Company Rule</field>
+        <field ref="model_custom_sales_requisition" name="model_id"/>
+        <field name="domain_force">[('company_id', '=', company_id)]</field>
+    </record>
 </odoo>
