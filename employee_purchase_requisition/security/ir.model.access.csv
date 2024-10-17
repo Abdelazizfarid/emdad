@@ -9,3 +9,4 @@ access_custom_sales_requisition_user,access.custom.sales.requisition,model_custo
 access_custom_sales_requisition_order_user,access.custom.sales.requisition.order,model_custom_sales_requisition_order,base.group_user,1,1,1,1
 access_receiving_date_user,receiving.date,model_receiving_date,base.group_user,1,1,1,1
 access_sales_receiving_date_user,sales.receiving.date,model_sales_receiving_date,base.group_user,1,1,1,1
+access_prepaid,prepaid,model_prepaid,base.group_user,1,1,1,1

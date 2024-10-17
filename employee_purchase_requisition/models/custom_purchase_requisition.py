@@ -10,11 +10,13 @@ class ResCompany(models.Model):
 
 class CustomPurchaseRequisition(models.Model):
     _name = 'custom.purchase.requisition'
+    _inherit = ['mail.thread','mail.activity.mixin']
     _description = 'Custom Purchase Requisition'
 
     active = fields.Boolean(default=True)
     responsible_id = fields.Many2one('res.users', string='Responsible',default=lambda self: self.env.user.id)
     requisition_date = fields.Date(string='Requisition Date', required=True,default=fields.Date.today)
+    prepaid_ids = fields.One2many('prepaid','requisition_id')
     received_date = fields.Date(string='Receiving Date')
     requisition_deadline = fields.Date(string='Requisition Deadline', required=True)
     company_id = fields.Many2one('res.company', string='Company', required=True,default=lambda self: self.env.company.id)
@@ -56,7 +58,7 @@ class CustomPurchaseRequisition(models.Model):
         required=True,  # Make the field required
         default='single'  # Set the default value
     )
-    single_category_id = fields.Many2one('product.category', string='Product Category')
+    single_category_id = fields.Many2one('product.category', string='Product Category',domain=[('product_count','>',0)])
 
 
     supply_type = fields.Selection(
@@ -107,6 +109,9 @@ class CustomPurchaseRequisition(models.Model):
     unique_id = fields.Char()
     approve_sum_products = fields.Boolean(string="Some Products")
     is_service = fields.Boolean("Is Service")
+    requisition_order_tab = fields.Boolean()
+    receiving_order_order_tab = fields.Boolean()
+    prepaid_tab = fields.Boolean()
 
     @api.onchange('supplier_type','single_vendor_id')
     def _compute_chosen_vendor(self):
@@ -138,7 +143,7 @@ class CustomPurchaseRequisition(models.Model):
             if record.supplier_type == 'single':
                 record.vendor_ids = [record.single_vendor_id.id] if record.single_vendor_id else []
             else:
-                record.vendor_ids = record.requisition_order_ids.mapped('vendor_id').ids
+                record.vendor_ids = record.requisition_order_ids.mapped('vendor_ids').ids
 
     @api.depends('requisition_order_ids')
     def _compute_vendors_offers(self):
@@ -148,10 +153,11 @@ class CustomPurchaseRequisition(models.Model):
 
             # Loop through requisition_order_ids and sum totals per vendor
             for line in record.requisition_order_ids:
-                if line.vendor_id:
-                    if line.vendor_id not in vendor_totals:
-                        vendor_totals[line.vendor_id] = 0
-                    vendor_totals[line.vendor_id] += line.total  # Assuming `total` is the price of the line
+                if line.vendor_ids:
+                    for vendor in line.vendor_ids:
+                        if vendor not in vendor_totals:
+                            vendor_totals[vendor] = 0
+                        vendor_totals[vendor] += line.total  # Assuming `total` is the price of the line
 
             # Format the offers string
             for vendor, total in vendor_totals.items():
@@ -192,10 +198,37 @@ class CustomPurchaseRequisition(models.Model):
             requisition.chosen_vendor_id = requisition.single_vendor_id.id
         else:
             for line in requisition.requisition_order_ids:
-                if not line.vendor_id:
+                if not line.vendor_ids:
                     raise ValidationError("Each requisition line must have a vendor specified for this supply type.")
+
         if requisition.is_service and not requisition.service_vendor_ids:
             raise ValidationError("You Must Choose Vendors You Want Their Offers")
+
+        if requisition.order_type == 'scheduled':
+            ordered_quantity = sum(requisition.requisition_order_ids.mapped('quantity'))
+            received_quantity = sum(requisition.receiving_order_ids.mapped('quantity'))
+
+            if ordered_quantity != received_quantity:
+                raise ValidationError(_("The total ordered quantities do not match the received quantities."))
+
+            # If you want to compare quantities per product
+            for line_ordered in requisition.requisition_order_ids:
+                # Find the matching receiving order line for the same product
+                matching_receiving_lines = requisition.receiving_order_ids.filtered(
+                    lambda l: l.product_id == line_ordered.product_id)
+
+                # Sum the quantities for the matching product
+                received_quantity_per_product = sum(matching_receiving_lines.mapped('quantity'))
+
+                if received_quantity_per_product != line_ordered.quantity:
+                    raise ValidationError(_(
+                        "The received quantity for product %s does not match the ordered quantity."
+                    ) % line_ordered.product_id.display_name)
+
+        ordered_product_list = [line.product_id for line in requisition.requisition_order_ids]
+        for line_add in requisition.receiving_order_ids:
+            if line_add.product_id not in ordered_product_list:
+                raise ValidationError(_(f"You Dont Order {line_add.product_id.name}"))
 
         return requisition
 
@@ -230,67 +263,85 @@ class CustomPurchaseRequisition(models.Model):
                     raise ValidationError("Vendor must be specified for single supply type.")
             else:
                 for line in requisition.requisition_order_ids:
-                    if not line.vendor_id:
+                    if not line.vendor_ids:
                         raise ValidationError(
                             "Each requisition line must have a vendor specified for this supply type.")
+        if self.order_type == 'scheduled':
+            ordered_quantity = sum(self.requisition_order_ids.mapped('quantity'))
+            received_quantity = sum(self.receiving_order_ids.mapped('quantity'))
 
+            if ordered_quantity != received_quantity:
+                raise ValidationError(_("The total ordered quantities do not match the received quantities."))
+
+            ordered_product_list = [line.product_id for line in self.requisition_order_ids]
+            for line_add in self.receiving_order_ids:
+                if line_add.product_id not in ordered_product_list:
+                    raise ValidationError(_(f"You Dont Order {line_add.product_id.name}"))
+            # If you want to compare quantities per product
+            for line_ordered in self.requisition_order_ids:
+                # Find the matching receiving order line for the same product
+                matching_receiving_lines = self.receiving_order_ids.filtered(
+                    lambda l: l.product_id == line_ordered.product_id)
+
+                # Sum the quantities for the matching product
+                received_quantity_per_product = sum(matching_receiving_lines.mapped('quantity'))
+
+                if received_quantity_per_product != line_ordered.quantity:
+                    raise ValidationError(_(
+                        "The received quantity for product %s does not match the ordered quantity."
+                    ) % line_ordered.product_id.display_name)
         return result
 
     def action_submit_requisition(self):
-        # If supply type is 'single', only use the single_vendor_id
+        # Generate a unique ID for the requisition
         self.unique_id = str(uuid.uuid4())
+
         if self.supplier_type == 'single' and not self.is_service:
-            # Vendor list will only contain the single_vendor_id
+            # Use the single vendor
             vendors = [self.single_vendor_id] if self.single_vendor_id else []
-        elif self.supply_type == 'multiple' and not self.is_service:
-            # If supply type is 'multiple', gather all unique vendors from requisition_order_ids
-            vendors = list(set(self.requisition_order_ids.mapped('vendor_id')))
+        elif self.supplier_type == 'multiple' and not self.is_service:
+            # Gather unique vendors from the requisition orders
+            vendors = list(set(self.requisition_order_ids.mapped('vendor_ids')))
         else:
-            vendors = self.service_vendor_ids
+            vendors = self.service_vendor_ids  # Service vendors
+
+        # Loop through each vendor
         for vendor in vendors:
             sales_requisition = self.env['custom.sales.requisition'].sudo().create({
                 'requisition_date': self.requisition_date,
                 'total_before_tax': self.total_before_tax,
                 'tax': self.tax,
                 'total': self.total,
-                'single_vendor_id': self.single_vendor_id.id if self.single_vendor_id else False,  # Pass the ID
-                'single_category_id': self.single_category_id.id if self.single_category_id else False,  # Pass the ID
+                'single_vendor_id': self.single_vendor_id.id if self.single_vendor_id else False,
+                'single_category_id': self.single_category_id.id if self.single_category_id else False,
                 'products_category_type': self.products_category_type,
-                'single_location_id': self.single_location_id.id if self.single_location_id else False,  # Pass the ID
+                'single_location_id': self.single_location_id.id if self.single_location_id else False,
                 'supplier_type': self.supplier_type,
                 'payment_term': self.payment_term,
                 'prepaid_date': self.prepaid_date,
                 'notes': self.notes,
                 'unique_id': self.unique_id,
+                'related_purchase_requisition_id':self.id,
                 'requisition_deadline': self.requisition_deadline,
-                'company_id': vendor.id,  # Vendor is the company here, pass the ID
+                'company_id': vendor.id,
                 'order_type': self.order_type,
                 'payment_method': self.payment_method,
                 'supply_type': self.supply_type,
-                'source_location_id': self.source_location_id.id if self.source_location_id else False,  # Pass the ID
+                'source_location_id': self.source_location_id.id if self.source_location_id else False,
                 'destination_location_id': self.destination_location_id.id if self.destination_location_id else False,
-                # Pass the ID
-                'delivery_to_id': self.delivery_to_id.id if self.delivery_to_id else False,  # Pass the ID
+                'delivery_to_id': self.delivery_to_id.id if self.delivery_to_id else False,
                 'internal_picking_id': self.internal_picking_id.id if self.internal_picking_id else False,
-                # Pass the ID
             })
-            sales_requisition.is_service = (
-                sales_requisition.company_id in self.service_vendor_ids
-            )
+
             if self.supplier_type == 'single':
-                # No filter for single vendor, add all order lines
+                # No filtering for a single vendor
                 filtered_orders = self.requisition_order_ids
             else:
-                # For multiple vendors, filter based on each vendor
-                filtered_orders = self.requisition_order_ids.filtered(lambda o: o.vendor_id.id == vendor.id)
-
+                # Filter purchase orders based on the vendor
+                filtered_orders = self.requisition_order_ids.filtered(lambda o: vendor in o.vendor_ids)
+                print(filtered_orders)
+            # Create lines for the sales requisition
             for order in filtered_orders:
-                # Generate a unique identifier for mapping
-                unique_id = str(uuid.uuid4())  # Using UUID for unique ID generation
-
-                # Set the unique_id in the purchase requisition order line
-                order.write({'unique_id': unique_id})
-
                 self.env['custom.sales.requisition.order'].sudo().create({
                     'requisition_id': sales_requisition.id,
                     'product_category_id': order.product_category_id.id,
@@ -298,35 +349,38 @@ class CustomPurchaseRequisition(models.Model):
                     'uom_id': order.uom_id.id,
                     'description': order.description,
                     'quantity': order.quantity,
-                    'unique_id': unique_id,
                     'tax_id': order.tax_id.id,
-                    'customer_location_id':order.location_id.id
+                    'customer_location_id': order.location_id.id
                 })
+
             if self.order_type == 'scheduled':
+                # Filter and create receiving orders
                 filtered_products = self.receiving_order_ids.filtered(lambda o: o.vendor_id.id == vendor.id)
                 for product in filtered_products:
-                    # Generate a unique identifier for mapping
-                    unique_id = str(uuid.uuid4())  # Using UUID for unique ID generation
-
-                    # Set the unique_id in the purchase requisition order line
-                    product.write({'unique_id': unique_id})
+                    unique_id = str(uuid.uuid4())  # Generate a unique ID
+                    product.write({'unique_id': unique_id})  # Set the unique ID
 
                     self.env['sales.receiving.date'].sudo().create({
                         'requisition_id': sales_requisition.id,
-                        'receiving_date':product.receiving_date,
+                        'receiving_date': product.receiving_date,
                         'product_id': product.product_id.id,
                         'uom_id': product.uom_id.id,
                         'quantity': product.quantity,
                         'unique_id': unique_id,
                         'location_id': product.location_id.id
                     })
-
+        # print(x)
+        # Check for excess received quantities
         for order in self.requisition_order_ids:
-            total_ordered = sum(order.quantity for requisition in self.requisition_order_ids if requisition.product_id == order.product_id)
-            total_received = sum(received.quantity for received in self.receiving_order_ids if received.product_id == order.product_id)
+            total_ordered = sum(
+                line.quantity for line in self.requisition_order_ids if line.product_id == order.product_id)
+            total_received = sum(
+                received.quantity for received in self.receiving_order_ids if received.product_id == order.product_id)
 
             if total_received > total_ordered:
-                raise ValidationError(_("Received quantity for {} exceeds ordered quantity.").format(order.product_id.name))
+                raise ValidationError(
+                    _("Received quantity for {} exceeds ordered quantity.").format(order.product_id.name))
+
         # Update stage after submission
         self.stage = 'requisition_sent'
 
@@ -343,12 +397,12 @@ class CustomPurchaseRequisition(models.Model):
                 'date_order': fields.Datetime.now(),
                 'order_line': [(0, 0, {
                     'product_id': line.product_id.id,
-                    'product_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
+                    'product_qty': line.quantity,
                     'price_unit': line.unit_price,
                     'date_planned': fields.Datetime.now(),
                     'name': line.description or '',
                     'product_uom': line.uom_id.id,
-                }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id or self.chosen_vendor_id==self.single_vendor_id],
+                }) for line in self.requisition_order_ids if self.chosen_vendor_id in line.vendor_ids or self.chosen_vendor_id==self.single_vendor_id],
             })
             self.env['sale.order'].sudo().create({
                 'partner_id': self.company_id.partner_id.id,  # The current company will be the customer
@@ -356,11 +410,11 @@ class CustomPurchaseRequisition(models.Model):
                 'date_order': fields.Datetime.now(),
                 'order_line': [(0, 0, {
                     'product_id': line.vendor_product_id.id,
-                    'product_uom_qty': line.sum_quantities if self.approve_sum_products else line.quantity,
+                    'product_uom_qty': line.quantity,
                     'price_unit': line.unit_price,
                     'name': line.description or '',
                     'product_uom': line.uom_id.id,
-                }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_vendor_id],
+                }) for line in self.requisition_order_ids if self.chosen_vendor_id in line.vendor_ids ],
             })
             self.stage = 'purchase_order_created'
             return {
@@ -381,21 +435,65 @@ class CustomPurchaseRequisition(models.Model):
                     'price_unit': line.unit_price,
                     'name': line.description or '',
                     'product_uom': line.uom_id.id,
-                }) for line in self.requisition_order_ids if line.vendor_id == self.chosen_service_vendor_id],
+                }) for line in self.requisition_order_ids if self.chosen_service_vendor_id in line.vendor_ids],
             })
+
+    def print_report(self):
+        data = {
+            'form': self.read()[0],
+            'prepaid_date': self.prepaid_date,
+            'requisition_date': self.requisition_date,
+            'received_date': self.received_date,
+            'requisition_deadline': self.requisition_deadline,
+            'company_id': self.company_id.name,
+            'order_type': self.order_type,
+            'payment_method': self.payment_method,
+            'prepaid': self.prepaid,
+            'payment_term': self.payment_term,
+            'supplier_type': self.supplier_type,
+            'single_location_id': self.single_location_id.name,
+            'products_category_type': self.products_category_type,
+            'single_category_id': self.single_category_id.name,
+            'supply_type': self.supply_type,
+            'single_vendor_id': self.single_vendor_id.id,
+            'stage': self.stage,
+            'requisition_order_ids': self.requisition_order_ids.ids,
+            'receiving_order_ids': self.receiving_order_ids.ids,
+            'source_location_id': self.source_location_id.id,
+            'destination_location_id': self.destination_location_id.id,
+            'delivery_to_id': self.delivery_to_id.id,
+            'internal_picking_id': self.internal_picking_id.id,
+            'address': self.address,
+            'vendors_offers': self.vendors_offers,
+            'vendor_ids': self.vendor_ids.ids,
+            'service_vendor_ids': self.service_vendor_ids.ids,
+            'chosen_vendor_id': self.chosen_vendor_id.name,
+            'chosen_service_vendor_id': self.chosen_service_vendor_id.id,
+            'total_before_tax': self.total_before_tax,
+            'tax': self.tax,
+            'total': self.total,
+            'notes': self.notes,
+            'approve_sum_products': self.approve_sum_products,
+            'is_service': self.is_service,
+            'requisition_order_tab': self.requisition_order_tab,
+            'receiving_order_order_tab': self.receiving_order_order_tab,
+            'prepaid_tab': self.prepaid_tab,
+        }
+        print(self.requisition_order_ids.ids)
+        return self.env.ref('employee_purchase_requisition.action_report_print_purchase_requisition').report_action(self,data=data)
+
 class CustomPurchaseRequisitionOrder(models.Model):
     _name = 'custom.purchase.requisition.order'
     _description = 'Custom Purchase Requisition Order'
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference')
     product_category_id = fields.Many2one('product.category', string='Product Category')
     product_id = fields.Many2one('product.product', string='Product')
-    suggestion_product_id = fields.Many2one('product.product', string='Suggestion Product',readonly=True)
     vendor_product_id = fields.Many2one('product.product', string='Vendor Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     description = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', required=True)
-    sum_quantities = fields.Float(string='Some Quantities')
-    vendor_id = fields.Many2one('res.company', string='Vendor',)
+    # sum_quantities = fields.Float(string='Some Quantities')
+    vendor_ids = fields.Many2many('res.company', string='Vendors',)
     location_id = fields.Many2one('stock.location', string='Customer Location',domain=[('usage', '=', 'internal')])
     vendor_location_id = fields.Many2one('stock.location', string='Vendor Location',readonly=True)
     # Add a related field to get the address from the destination_location_id
@@ -461,7 +559,41 @@ class ReceivingDate(models.Model):
     quantity = fields.Float(string='Quantity', required=True)
     location_id = fields.Many2one('stock.location', string='Location')
     vendor_id = fields.Many2one('res.company', string='Vendors')
+# class SuggestProduct(models.Model):
+#     _name = 'suggest.product'
+#
+#     suggestion_product_id = fields.Many2one('product.product', string='Suggestion Product', readonly=True)
+#
+#     suggest_id = fields.Many2one('purchase.order')
+
+class ProductCategory(models.Model):
+    _inherit = 'product.category'
+
+    product_count = fields.Integer(
+        '# Products', compute='_compute_product_count',store=True,
+        help="The number of products under this category (Does not consider the children categories)")
 
 
+    def _compute_product_count(self):
+        read_group_res = self.env['product.template']._read_group([('categ_id', 'child_of', self.ids)], ['categ_id'], ['__count'])
+        group_data = {categ.id: count for categ, count in read_group_res}
+        for categ in self:
+            product_count = 0
+            for sub_categ_id in categ.search([('id', 'child_of', categ.ids)]).ids:
+                product_count += group_data.get(sub_categ_id, 0)
+            categ.product_count = product_count
 
+class PurchaseOrder(models.Model):
+    _inherit = 'purchase.order'
 
+    related_purchase_requisition_id = fields.Many2one('custom.purchase.requisition',"Related Requisition")
+    # suggest_product_id = fields.One2many(
+    #     'suggest.product',  # Related model
+    #     'suggest_id',  # The Many2one field in the related model
+    #     string='Suggestions'
+    # )
+class Prepaid(models.Model):
+    _name = 'prepaid'
+
+    deadline = fields.Date(string='Deadline Date')
+    requisition_id = fields.Many2one('custom.purchase.requisition')

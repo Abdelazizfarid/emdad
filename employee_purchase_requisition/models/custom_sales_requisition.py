@@ -1,10 +1,11 @@
 from odoo import models, fields, api,_
 from odoo.exceptions import ValidationError
-
+from odoo.tools import ormcache
 
 
 class CustomSalesRequisition(models.Model):
     _name = 'custom.sales.requisition'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'Custom Sales Requisition'
 
     active = fields.Boolean(default=True)
@@ -99,6 +100,7 @@ class CustomSalesRequisition(models.Model):
     notes = fields.Html(string="Notes",readonly=True)
     is_service = fields.Boolean("Is Service")
     unique_id = fields.Char()
+    related_purchase_requisition_id = fields.Many2one('custom.purchase.requisition', "Related Requisition")
     @api.depends('sales_requisition_order_ids.total', 'sales_requisition_order_ids.unit_price', 'sales_requisition_order_ids.tax_id')
     def _compute_totals(self):
         for requisition in self:
@@ -118,21 +120,20 @@ class CustomSalesRequisition(models.Model):
 
     def action_submit_offer(self):
         if not self.is_service:
-            for order in self.sales_requisition_order_ids:
-                purchase_order_line = self.env['custom.purchase.requisition.order'].search([
-                    ('unique_id', '=', order.unique_id),
-                    ('requisition_id', '!=', False)
-                ], limit=1)
-                if not order.product_id and not self.is_service:
-                    raise ValidationError(_("Customer Product Is Required"))
-                # Update the purchase requisition order line's unit_price
-                if purchase_order_line:
-                    purchase_order_line.unit_price = order.unit_price
-                    purchase_order_line.vendor_product_id = order.vendor_product_id
-                    purchase_order_line.suggestion_product_id = order.suggestion_product_id
-                    purchase_order_line.vendor_location_id = order.location_id
-                    purchase_order_line.deadline = order.deadline
-                    purchase_order_line.vendor_id = order.vendor_id
+            self.env['purchase.order'].create({
+                'partner_id':self.company_id.id,
+                'related_purchase_requisition_id':self.related_purchase_requisition_id.id,
+                'order_line': [(0, 0, {
+                'product_id': order.product_id.id,
+                'product_qty': order.quantity,
+                'price_unit': order.unit_price,
+                'product_uom': order.uom_id.id or order.product_id.uom_id.id,
+                'name': order.description or '',
+                'date_planned': fields.Date.today(),
+                'taxes_id': [(6, 0, [order.tax_id.id])] if order.tax_id else [(5,)],
+            })for order in self.sales_requisition_order_ids]
+            })
+
         else:
             for rec in self:
                 purchase_order = self.env['custom.purchase.requisition'].search([

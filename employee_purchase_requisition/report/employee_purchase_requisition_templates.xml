@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<!--    purchase requisition report template-->
+    <!--    purchase requisition report template-->
     <template id="report_purchase_requisition">
         <t t-call="web.external_layout">
             <t t-call="web.html_container">
@@ -8,7 +8,7 @@
                     <t t-foreach="records" t-as="rec">
                         <h5>Purchase Requisition :
                             <t t-if="rec['name']">
-                            <t t-esc="rec['name']"/>
+                                <t t-esc="rec['name']"/>
                             </t>
                         </h5>
                         <table class="table table-striped">
@@ -16,13 +16,13 @@
                                 <th>Employee</th>
                                 <td>
                                     <t t-if="rec['employee_id']">
-                                    <t t-esc="rec['employee_id'][1]"/>
+                                        <t t-esc="rec['employee_id'][1]"/>
                                     </t>
                                 </td>
                                 <th>Requisition Date</th>
                                 <td>
                                     <t t-if="rec['employee_id']">
-                                    <t t-esc="rec['requisition_date']"/>
+                                        <t t-esc="rec['requisition_date']"/>
                                     </t>
                                 </td>
                             </tr>
@@ -30,13 +30,13 @@
                                 <th>Department</th>
                                 <td>
                                     <t t-if="rec['dept_id']">
-                                    <t t-esc="rec['dept_id'][1]"/>
+                                        <t t-esc="rec['dept_id'][1]"/>
                                     </t>
                                 </td>
                                 <th>Received Date</th>
                                 <td>
                                     <t t-if="rec['receive_date']">
-                                    <t t-esc="rec['receive_date']"/>
+                                        <t t-esc="rec['receive_date']"/>
                                     </t>
                                 </td>
                             </tr>
@@ -44,13 +44,13 @@
                                 <th>Requisition Responsible</th>
                                 <td>
                                     <t t-if="rec['user_id']">
-                                    <t t-esc="rec['user_id'][1]"/>
+                                        <t t-esc="rec['user_id'][1]"/>
                                     </t>
                                 </td>
                                 <th>Requisition Deadline</th>
                                 <td>
                                     <t t-if="rec['requisition_deadline']">
-                                    <t t-esc="rec['requisition_deadline']"/>
+                                        <t t-esc="rec['requisition_deadline']"/>
                                     </t>
                                 </td>
                             </tr>
@@ -58,7 +58,7 @@
                                 <th>Company</th>
                                 <td>
                                     <t t-if="rec['company_id']">
-                                    <t t-esc="rec['company_id'][1]"/>
+                                        <t t-esc="rec['company_id'][1]"/>
                                     </t>
                                 </td>
                             </tr>
@@ -69,13 +69,13 @@
                                 <th>Confirmed By</th>
                                 <td>
                                     <t t-if="rec['confirm_id']">
-                                    <t t-esc="rec['confirm_id'][1]"/>
+                                        <t t-esc="rec['confirm_id'][1]"/>
                                     </t>
                                 </td>
                                 <th>Confirmed Date</th>
                                 <td>
                                     <t t-if="rec['confirmed_date']">
-                                    <t t-esc="rec['confirmed_date']"/>
+                                        <t t-esc="rec['confirmed_date']"/>
                                     </t>
                                 </td>
                             </tr>
@@ -83,13 +83,13 @@
                                 <th>Department Manager</th>
                                 <td>
                                     <t t-if="rec['manager_id']">
-                                    <t t-esc="rec['manager_id'][1]"/>
+                                        <t t-esc="rec['manager_id'][1]"/>
                                     </t>
                                 </td>
                                 <th>Department Approval Date</th>
                                 <td>
                                     <t t-if="rec['department_approval_date']">
-                                    <t t-esc="rec['department_approval_date']"/>
+                                        <t t-esc="rec['department_approval_date']"/>
                                     </t>
                                 </td>
                             </tr>
@@ -98,13 +98,13 @@
                                 <th>Approved By:</th>
                                 <td>
                                     <t t-if="rec['requisition_head_id']">
-                                    <t t-esc="rec['requisition_head_id'][1]"/>
+                                        <t t-esc="rec['requisition_head_id'][1]"/>
                                     </t>
                                 </td>
                                 <th>Approved Date:</th>
                                 <td>
                                     <t t-if="rec['approval_date']">
-                                    <t t-esc="rec['approval_date']"/>
+                                        <t t-esc="rec['approval_date']"/>
                                     </t>
                                 </td>
                             </tr>
@@ -128,14 +128,14 @@
                             <tr>
                                 <th>Source Location</th>
                                 <td>
-                                     <t t-if="rec['source_location_id']">
-                                    <t t-esc="rec['source_location_id'][1]"/>
-                                     </t>
+                                    <t t-if="rec['source_location_id']">
+                                        <t t-esc="rec['source_location_id'][1]"/>
+                                    </t>
                                 </td>
                                 <th>Destination Location</th>
                                 <td>
                                     <t t-if="rec['source_location_id']">
-                                    <t t-esc="rec['destination_location_id'][1]"/>
+                                        <t t-esc="rec['destination_location_id'][1]"/>
                                     </t>
                                 </td>
                             </tr>
@@ -177,22 +177,23 @@
                                 </td>
                                 <td>
                                     <t t-if="order['product_id']">
-                                    <t t-esc="order['product_id'][1]"/>
+                                        <t t-esc="order['product_id'][1]"/>
                                     </t>
                                 </td>
                                 <td>
                                     <t t-if="order['description']">
-                                    <t t-esc="order['description']"/>
+                                        <t t-esc="order['description']"/>
                                     </t>
                                 </td>
                                 <td>
                                     <t t-if="order['quantity']">
-                                    <t t-esc="order['quantity']"/>
+                                        <t t-esc="order['quantity']"/>
                                     </t>
                                 </td>
-                                <td><t t-if="order['uom']">
-                                    <t t-esc="order['uom']"/>
-                                </t>
+                                <td>
+                                    <t t-if="order['uom']">
+                                        <t t-esc="order['uom']"/>
+                                    </t>
                                 </td>
                             </tbody>
                         </t>
@@ -204,5 +205,204 @@
             </t>
         </t>
     </template>
+
+    <template id="report_purchase_requisition_template">
+        <t t-call="web.basic_layout">
+            <t t-call="web.html_container">
+                <div class="page">
+                    <h1>Purchase Requisition Order</h1>
+                    <table class="table table-striped" style="font-size:large;">
+                        <tbody>
+                            <tr>
+                                <td>Chosen Vendor</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="chosen_vendor_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Requisition Date</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="requisition_date"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Received Date</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="received_date"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Requisition Deadline</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="requisition_deadline"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Company</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="company_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Order Type</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="order_type"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Payment Method</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="payment_method"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Supplier Type</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="supplier_type"/>
+                                </td>
+                            </tr>
+                            <tr t-if="supply_type == 'single'">
+                                <td>Single Location</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="single_location_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Product Category</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="single_category_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Supply Type</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="supply_type"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Notes</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="notes"/>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <t t-if="requisition_order_tab">
+                        <table style="width:100%" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th t-if="product_category_type == 'multiple'">Product Category</th>
+                                    <th>Product</th>
+                                    <th>Vendor Product</th>
+                                    <th>Unit of Measure</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th t-if="supplier_type == 'multiple'">Vendors</th>
+                                    <th t-if="supply_type == 'multiple'">Customer Location</th>
+                                    <th t-if="supply_type == 'multiple'">Vendor Location</th>
+                                    <th t-if="supply_type == 'multiple'">Destination Address</th>
+                                    <th>Unit Price</th>
+                                    <th>Tax</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="env['custom.purchase.requisition.order'].sudo().browse(requisition_order_ids)"
+                                    t-as="line">
+                                    <td t-if="product_category_type == 'multiple'">
+                                        <span t-field="line.product_category_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.product_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.vendor_product_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.uom_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.description"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.quantity"/>
+                                    </td>
+                                    <td t-if="supplier_type == 'multiple'">
+                                        <span t-field="line.vendor_ids.name"/>
+                                    </td>
+                                    <td t-if="supply_type == 'multiple'">
+                                        <span t-field="line.location_id.name"/>
+                                    </td>
+                                    <td t-if="supply_type == 'multiple'">
+                                        <span t-field="line.vendor_location_id.name"/>
+                                    </td>
+                                    <td t-if="supply_type == 'multiple'">
+                                        <span t-field="line.location_id.address"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.unit_price"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.tax_id.name"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </t>
+                    <t t-if="receiving_order_order_tab">
+                        <table style="width:100%" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Receiving Date</th>
+                                    <th>Product</th>
+                                    <th>Unit of Measure</th>
+                                    <th>Quantity</th>
+                                    <th>Location</th>
+                                    <th>Vendors</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="env['receiving.date'].sudo().browse(receiving_order_ids)"
+                                    t-as="line">
+                                    <td>
+                                        <span t-field="line.receiving_date"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.product_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.uom_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.quantity"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.location_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.vendor_id.name"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                    </t>
+                </div>
+            </t>
+        </t>
+    </template>
+
+
 </odoo>
 
