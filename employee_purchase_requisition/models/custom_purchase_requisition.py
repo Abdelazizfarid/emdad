@@ -271,20 +271,36 @@ class CustomPurchaseRequisition(models.Model):
         # Generate a unique ID for the requisition
         self.unique_id = str(uuid.uuid4())
         if self.order_type == 'scheduled':
+            # Initialize a list to collect error messages
+            error_messages = []
 
-            # If you want to compare quantities per product
             for line_ordered in self.requisition_order_ids:
-                # Find the matching receiving order line for the same product
+                # Filter to find matching receiving lines for the same product
                 matching_receiving_lines = self.receiving_order_ids.filtered(
-                    lambda l: l.product_id == line_ordered.product_id)
+                    lambda l: l.product_id == line_ordered.product_id
+                )
 
-                # Sum the quantities for the matching product
+                # Calculate the total received quantity for the matching product
                 received_quantity_per_product = sum(matching_receiving_lines.mapped('quantity'))
+                remaining_quantity = line_ordered.quantity - received_quantity_per_product
 
+                # Check if the received quantity matches the ordered quantity
                 if received_quantity_per_product != line_ordered.quantity:
-                    raise ValidationError(_(
-                        "The received quantity for product %s does not match the ordered quantity."
-                    ) % line_ordered.product_id.display_name)
+                    error_messages.append(
+                        _(
+                            "Product '%s':\nExpected Quantity: %s\nReceived Quantity: %s\nRemaining Quantity: %s\n\n"
+                        ) % (
+                            line_ordered.product_id.display_name,
+                            line_ordered.quantity,
+                            received_quantity_per_product,
+                            remaining_quantity
+                        )
+                    )
+
+            # If there are any errors, raise a ValidationError with all details
+            if error_messages:
+                raise ValidationError(_("Quantity Mismatch for Products:\n\n") + "\n".join(error_messages))
+
         for line in self.requisition_order_ids:
             if not line.quantity:
                 raise ValidationError(_("Quantity Is Required"))
