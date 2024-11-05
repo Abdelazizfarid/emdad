@@ -1,6 +1,5 @@
 from odoo import models, fields, api,_
 from odoo.exceptions import ValidationError
-from odoo.tools import ormcache
 
 
 class CustomSalesRequisition(models.Model):
@@ -14,6 +13,7 @@ class CustomSalesRequisition(models.Model):
     received_date = fields.Date(string='Received Date')
     requisition_deadline = fields.Date(string='Requisition Deadline', required=True)
     company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company.id)
+    customer_id = fields.Many2one('res.company', string='Customer', required=True)
 
     order_type = fields.Selection([
         ('one_time', 'One-time Supply'),
@@ -76,6 +76,11 @@ class CustomSalesRequisition(models.Model):
         'requisition_id',  # The Many2one field in the related model
         string='Sales Requisition Orders'
     )
+    suggestion_product_ids = fields.One2many(
+        'product.suggest',  # Related model
+        'suggest_id',  # The Many2one field in the related model
+        string='Suggestion Products'
+    )
 
     receiving_order_ids = fields.One2many(
         'sales.receiving.date',  # Related model
@@ -120,47 +125,76 @@ class CustomSalesRequisition(models.Model):
 
     def action_submit_offer(self):
         if not self.is_service:
-            self.env['purchase.order'].create({
-                'partner_id':self.company_id.id,
-                'related_purchase_requisition_id':self.related_purchase_requisition_id.id,
+            purchase_order = self.env['purchase.order'].sudo().create({
+                'partner_id': self.company_id.partner_id.id,
+                'company_id': self.customer_id.id,
+                'related_purchase_requisition_id': self.related_purchase_requisition_id.id,
                 'order_line': [(0, 0, {
-                'product_id': order.product_id.id,
-                'product_qty': order.quantity,
-                'price_unit': order.unit_price,
-                'product_uom': order.uom_id.id or order.product_id.uom_id.id,
-                'name': order.description or '',
-                'date_planned': fields.Date.today(),
-                'taxes_id': [(6, 0, [order.tax_id.id])] if order.tax_id else [(5,)],
-            })for order in self.sales_requisition_order_ids]
+                    'product_id': order.product_id.sudo().id,
+                    'product_qty': order.quantity,
+                    'price_unit': order.unit_price,
+                    'product_uom': order.uom_id.sudo().id if order.uom_id else order.product_id.sudo().uom_id.id,
+                    'name': order.description or '',
+                    'date_planned': fields.Date.today(),
+                    'taxes_id': [(6, 0, [order.tax_id.sudo().id])] if order.tax_id else [(5,)],
+                    'is_seen' : order.is_seen,
+                }) for order in self.sales_requisition_order_ids.sudo()],
             })
 
+            # Check if a related purchase requisition exists
+            if purchase_order_requisition := self.env['custom.purchase.requisition'].sudo().search(
+                    [('unique_id', '=', self.unique_id)]):
+                # Update suggest_product_ids
+                purchase_order_requisition.sudo().write({
+                    'suggest_product_ids': [
+                        (0, 0, {
+                            'product_id': sale.product_id.sudo().id,
+                            'price_unit': sale.price_unit,
+                            'vendor_id': self.company_id.id
+                        })
+                        for sale in self.suggestion_product_ids.sudo()
+                    ]
+                })
+                # Update requisition_order_ids based on existing lines
+                for sale in self.sales_requisition_order_ids:
+                    if sale.product_id:
+                        existing_line = purchase_order_requisition.requisition_order_ids.filtered(
+                            lambda line: line.product_id == sale.product_id
+                        )
+                        if existing_line:
+                            # Update the existing line
+                            existing_line.sudo().write({
+                                'is_seen': sale.is_seen
+                            })
         else:
+            # For cases where is_service is True
             for rec in self:
-                purchase_order = self.env['custom.purchase.requisition'].search([
-                    ('unique_id', '=', rec.unique_id)
-                ], limit=1)
-
+                purchase_order = self.env['custom.purchase.requisition'].sudo().search(
+                    [('unique_id', '=', rec.unique_id)], limit=1
+                )
                 if purchase_order:
-                    for line_sale in rec.sales_requisition_order_ids:
+                    for line_sale in rec.sales_requisition_order_ids.sudo():
                         # Create a new line for each sale line in the purchase requisition order
-                        self.env['custom.purchase.requisition.order'].create({
-                            'vendor_product_id': line_sale.vendor_product_id.id,
-                            'uom_id': line_sale.uom_id.id,
+                        self.env['custom.purchase.requisition.order'].sudo().create({
+                            'vendor_product_id': line_sale.vendor_product_id.sudo().id,
+                            'uom_id': line_sale.uom_id.sudo().id,
                             'description': line_sale.description,
                             'quantity': line_sale.quantity,
                             'unit_price': line_sale.unit_price,
                             'total': line_sale.total,
-                            'tax_id': line_sale.tax_id.id,
+                            'tax_id': line_sale.tax_id.sudo().id,
                             'vendor_id': rec.company_id.id,
                             'requisition_id': purchase_order.id  # Link to the current purchase order
                         })
 
+        # Update stage to 'requisition_sent'
         self.stage = 'requisition_sent'
+
 class CustomSalesRequisitionOrder(models.Model):
     _name = 'custom.sales.requisition.order'
     _description = 'Custom Sales Requisition Order'
 
-    requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference')
+    requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference',ondelete='cascade')
     product_category_id = fields.Many2one('product.category', string='Product Category')
     product_id = fields.Many2one('product.product', string='Customer Product',
                                  domain="[('categ_id', '=', product_category_id)]")
@@ -190,6 +224,7 @@ class CustomSalesRequisitionOrder(models.Model):
     unique_id = fields.Char(string='Unique Identifier')
     vendor_id = fields.Many2one('res.company', string="Vendor")
     deadline = fields.Date(string='Deadline Date')
+    is_seen = fields.Boolean(string="Not Available")
 
     @api.depends('unit_price', 'quantity', 'tax_id')
     def _compute_total(self):
@@ -235,10 +270,16 @@ class ReceivingDate(models.Model):
 
     unique_id = fields.Char(string='Unique Identifier')
     receiving_date = fields.Date(string='Receiving Date', required=True)
-    requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference', required=True)
+    requisition_id = fields.Many2one('custom.sales.requisition', string='Requisition Reference', required=True,ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     quantity = fields.Float(string='Quantity')
     location_id = fields.Many2one('stock.location', string='Location')
     vendor_id = fields.Many2one('res.company', string='Vendors')
 
+class SuggestionProduct(models.Model):
+    _name = 'product.suggest'
+
+    product_id = fields.Many2one('product.product')
+    price_unit = fields.Float()
+    suggest_id = fields.Many2one('custom.sales.requisition',ondelete='cascade')

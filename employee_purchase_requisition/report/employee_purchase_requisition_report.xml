@@ -9,16 +9,7 @@
         <field name="report_file">employee_purchase_requisition.report_purchase_requisition</field>
     </record>
 
-    <record id="action_report_print_purchase_requisition" model="ir.actions.report">
-        <field name="name">Purchase Requisition Report</field>
-        <field name="model">employee.purchase.requisition</field>
-        <field name="report_type">qweb-pdf</field>
-        <field name="report_name">employee_purchase_requisition.report_purchase_requisition_template</field>
-        <field name="report_file">employee_purchase_requisition.report_purchase_requisition_template</field>
-        <field name="paperformat_id" ref="employee_purchase_requisition.paperformat_purchase_requisition"/>
-    </record>
-
-    <record id="paperformat_purchase_requisition" model="report.paperformat">
+        <record id="paperformat_purchase_requisition" model="report.paperformat">
         <field name="name">A4</field>
         <field name="default" eval="True"/>
         <field name="format">A4</field>
@@ -32,6 +23,15 @@
         <field name="header_line" eval="False"/>
         <field name="header_spacing">15</field>
         <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_print_purchase_requisition" model="ir.actions.report">
+        <field name="name">Purchase Requisition Report</field>
+        <field name="model">custom.purchase.requisition</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">employee_purchase_requisition.report_purchase_requisition_template</field>
+        <field name="report_file">employee_purchase_requisition.report_purchase_requisition_template</field>
+        <field name="paperformat_id" ref="employee_purchase_requisition.paperformat_purchase_requisition"/>
     </record>
 
 </odoo>

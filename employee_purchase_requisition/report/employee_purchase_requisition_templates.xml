@@ -338,9 +338,14 @@
                                     <td>
                                         <span t-field="line.quantity"/>
                                     </td>
-                                    <td t-if="supplier_type == 'multiple'">
-                                        <span t-field="line.vendor_ids.name"/>
-                                    </td>
+                                    <t t-if="supplier_type == 'multiple'">
+                                        <td>
+                                            <t t-foreach="line.vendor_ids" t-as="vendor">
+                                                <span t-esc="vendor.name"/>
+                                            </t>
+                                        </td>
+                                    </t>
+
                                     <td t-if="supply_type == 'multiple'">
                                         <span t-field="line.location_id.name"/>
                                     </td>

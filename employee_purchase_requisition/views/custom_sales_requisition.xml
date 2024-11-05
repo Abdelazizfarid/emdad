@@ -26,6 +26,7 @@
                         <group>
                             <field name="requisition_date" readonly="1"/>
                             <field name="requisition_deadline" readonly="1"/>
+                            <field name="customer_id" readonly="1"/>
                             <field name="company_id" readonly="1"/>
                             <field name="order_type" readonly="1"/>
                             <field name="payment_method" readonly="1"/>
@@ -70,19 +71,16 @@
                             <!--                              invisible="supplier_type != 'single' or products_category_type != 'single' or supply_type != 'single'">-->
                             <field name="sales_requisition_order_ids" context="{'default_requisition_id': active_id}"
                                    widget="one2many_list" editable="bottom">
-                                <tree string="Requisition Orders" editable="bottom" delete="False">
+                                <tree string="Requisition Orders" editable="bottom" delete="0" create="0">
                                     <!-- No product_category_id, location_id, or address -->
                                     <field name="product_category_id"
                                            column_invisible="parent.products_category_type != 'multiple'" readonly="1"/>
                                     <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"
                                            readonly="1"/>
-                                    <field name="vendor_product_id"
-                                           domain="[('categ_id', '=', parent.single_category_id)]"/>
                                     <field name="uom_id" readonly="parent.is_service != True"/>
                                     <field name="description" readonly="parent.is_service != True"/>
                                     <field name="quantity" readonly="parent.is_service != True"/>
                                     <field name="unit_price"/>
-                                    <field name="suggestion_product_id"/>
                                     <field name="total" readonly="parent.is_service != True"/>
                                     <field name="tax_id" readonly="parent.is_service != True"/>
                                     <field name="location_id" column_invisible="parent.supply_type != 'multiple'"/>
@@ -92,6 +90,7 @@
                                             invisible="parent.supply_type != 'multiple'"/>
                                     <button name="copy_product" string="Duplicate Product" type="object"
                                             class="oe_highlight" invisible="parent.is_service == True"/>
+                                    <field name="is_seen"/>
                                     <field name="address" readonly="1" column_invisible="1"/>
                                 </tree>
                             </field>
@@ -113,7 +112,14 @@
                                     <field name="uom_id"/>
                                     <field name="quantity"/>
                                     <field name="location_id"/>
-                                    <field name="vendor_id"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Suggestion Products">
+                            <field name="suggestion_product_ids" widget="one2many_list" editable="bottom">
+                                <tree string="Suggestion Products" editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="price_unit"/>
                                 </tree>
                             </field>
                         </page>

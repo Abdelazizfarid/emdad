@@ -32,7 +32,7 @@
     'company': 'Cybrosys Techno Solutions',
     'maintainer': 'Cybrosys Techno Solutions',
     'website': 'https://www.cybrosys.com',
-    'depends': ['base', 'hr', 'stock', 'purchase','product','mail'],
+    'depends': ['base', 'hr', 'stock', 'purchase','product','mail','sale','sale_management'],
     'data': [
         'security/employee_purchase_requisition_groups.xml',
         'security/employee_purchase_requisition_security.xml',
@@ -43,7 +43,7 @@
         'views/employee_purchase_requisition_menu.xml',
         'views/hr_employee_views.xml',
         'views/hr_department_views.xml',
-        'views/purchase_order_views.xml',
+        # 'views/purchase_order_views.xml',
         'views/stock_picking_views.xml',
         'views/employee_purchase_requisition_actions.xml',
         'report/employee_purchase_requisition_templates.xml',
