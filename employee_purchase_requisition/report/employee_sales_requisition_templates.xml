@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_sales_requisition_template">
+        <t t-call="web.basic_layout">
+            <t t-call="web.html_container">
+                <div class="page">
+                    <h1>Sales Requisition Order</h1>
+                    <table class="table table-striped" style="font-size:large;">
+                        <tbody>
+                            <tr>
+                                <td>Chosen Vendor</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="responsible_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Requisition Date</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="requisition_date"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Received Date</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="received_date"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Requisition Deadline</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="requisition_deadline"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Company</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="company_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Order Type</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="order_type"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Payment Method</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="payment_method"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Supplier Type</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="supplier_type"/>
+                                </td>
+                            </tr>
+                            <tr t-if="supply_type == 'single'">
+                                <td>Single Location</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="single_location_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Product Category</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="single_category_id"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Supply Type</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="supply_type"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Notes</td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <span t-esc="notes"/>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <t t-if="requisition_order_tab">
+                        <table style="width:100%" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th t-if="product_category_type == 'multiple'">Product Category</th>
+                                    <th>Product</th>
+                                    <th>Vendor Product</th>
+                                    <th>Unit of Measure</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th t-if="supplier_type == 'multiple'">Vendors</th>
+                                    <th t-if="supply_type == 'multiple'">Customer Location</th>
+                                    <th t-if="supply_type == 'multiple'">Vendor Location</th>
+                                    <th t-if="supply_type == 'multiple'">Destination Address</th>
+                                    <th>Unit Price</th>
+                                    <th>Tax</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="env['custom.sales.requisition.order'].sudo().browse(sales_requisition_order_ids)"
+                                    t-as="line">
+                                    <td t-if="product_category_type == 'multiple'">
+                                        <span t-field="line.product_category_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.product_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.vendor_product_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.uom_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.description"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.quantity"/>
+                                    </td>
+                                    <t t-if="supplier_type == 'multiple'">
+                                        <td>
+                                            <t t-foreach="line.vendor_ids" t-as="vendor">
+                                                <span t-esc="vendor.name"/>
+                                            </t>
+                                        </td>
+                                    </t>
+
+                                    <td t-if="supply_type == 'multiple'">
+                                        <span t-field="line.location_id.name"/>
+                                    </td>
+                                    <td t-if="supply_type == 'multiple'">
+                                        <span t-field="line.vendor_location_id.name"/>
+                                    </td>
+                                    <td t-if="supply_type == 'multiple'">
+                                        <span t-field="line.location_id.address"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.unit_price"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.tax_id.name"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </t>
+                    <t t-if="receiving_order_order_tab">
+                        <table style="width:100%" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Receiving Date</th>
+                                    <th>Product</th>
+                                    <th>Unit of Measure</th>
+                                    <th>Quantity</th>
+                                    <th>Location</th>
+                                    <th>Vendors</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="env['sales.receiving.date'].sudo().browse(receiving_order_ids)"
+                                    t-as="line">
+                                    <td>
+                                        <span t-field="line.receiving_date"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.product_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.uom_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.quantity"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.location_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.vendor_id.name"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                    </t>
+                </div>
+            </t>
+        </t>
+    </template>
+
+
+</odoo>
+
