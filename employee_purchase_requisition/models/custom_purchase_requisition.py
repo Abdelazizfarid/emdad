@@ -12,6 +12,10 @@ class CustomPurchaseRequisition(models.Model):
     _inherit = ['mail.thread','mail.activity.mixin']
     _description = 'Custom Purchase Requisition'
 
+    def _compute_display_name(self):
+        for rec in self:
+            rec.display_name = f'Purchase Requisition {rec.id}'
+
     active = fields.Boolean(default=True)
     responsible_id = fields.Many2one('res.users', string='Responsible',default=lambda self: self.env.user.id)
     requisition_date = fields.Date(string='Requisition Date', required=True,default=fields.Date.today)
@@ -126,6 +130,11 @@ class CustomPurchaseRequisition(models.Model):
     prepaid_tab = fields.Boolean()
     tree_readonly = fields.Boolean()
 
+    @api.onchange('order_type')
+    def _onchange_order_type(self):
+        for line in self.receiving_order_ids:
+            line.unlink()
+
     @api.onchange('supplier_type','single_vendor_id')
     def _compute_chosen_vendor(self):
         for rec in self:
@@ -184,6 +193,8 @@ class CustomPurchaseRequisition(models.Model):
         # sourcery skip: merge-duplicate-blocks, reintroduce-else, remove-redundant-if, split-or-ifs, swap-if-else-branches
         # Call super to create the record first
         requisition = super(CustomPurchaseRequisition, self).create(vals)
+
+        vals['name'] = f"P.Req {self.env['ir.sequence'].next_by_code('custom.purchase.requisition')}"
 
         # Validate supply_type
         if requisition.supply_type == 'single':
@@ -271,36 +282,20 @@ class CustomPurchaseRequisition(models.Model):
         # Generate a unique ID for the requisition
         self.unique_id = str(uuid.uuid4())
         if self.order_type == 'scheduled':
-            # Initialize a list to collect error messages
-            error_messages = []
 
+            # If you want to compare quantities per product
             for line_ordered in self.requisition_order_ids:
-                # Filter to find matching receiving lines for the same product
+                # Find the matching receiving order line for the same product
                 matching_receiving_lines = self.receiving_order_ids.filtered(
-                    lambda l: l.product_id == line_ordered.product_id
-                )
+                    lambda l: l.product_id == line_ordered.product_id)
 
-                # Calculate the total received quantity for the matching product
+                # Sum the quantities for the matching product
                 received_quantity_per_product = sum(matching_receiving_lines.mapped('quantity'))
-                remaining_quantity = line_ordered.quantity - received_quantity_per_product
 
-                # Check if the received quantity matches the ordered quantity
                 if received_quantity_per_product != line_ordered.quantity:
-                    error_messages.append(
-                        _(
-                            "Product '%s':\nExpected Quantity: %s\nReceived Quantity: %s\nRemaining Quantity: %s\n\n"
-                        ) % (
-                            line_ordered.product_id.display_name,
-                            line_ordered.quantity,
-                            received_quantity_per_product,
-                            remaining_quantity
-                        )
-                    )
-
-            # If there are any errors, raise a ValidationError with all details
-            if error_messages:
-                raise ValidationError(_("Quantity Mismatch for Products:\n\n") + "\n".join(error_messages))
-
+                    raise ValidationError(_(
+                        "The received quantity for product %s does not match the ordered quantity."
+                    ) % line_ordered.product_id.display_name)
         for line in self.requisition_order_ids:
             if not line.quantity:
                 raise ValidationError(_("Quantity Is Required"))
@@ -490,12 +485,19 @@ class CustomPurchaseRequisition(models.Model):
         }
         print(self.requisition_order_ids.ids)
         return self.env.ref('employee_purchase_requisition.action_report_print_purchase_requisition').report_action(self,data=data)
+
+
 class CustomPurchaseRequisitionOrder(models.Model):
     _name = 'custom.purchase.requisition.order'
     _description = 'Custom Purchase Requisition Order'
 
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference')
+    order_type = fields.Selection([
+        ('one_time', 'One-time Supply'),
+        ('scheduled', 'Scheduled Supply')
+    ], string='Type of Order', related='requisition_id.order_type')
     product_category_id = fields.Many2one('product.category', string='Product Category')
+    image_1920 = fields.Image("Image", max_width=1920, max_height=1920, related='product_id.image_1920')
     product_id = fields.Many2one('product.product', string='Product')
     vendor_product_id = fields.Many2one('product.product', string='Vendor Product')
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
@@ -561,13 +563,15 @@ class ReceivingDate(models.Model):
     _description = 'Receiving Date'
 
     unique_id = fields.Char(string='Unique Identifier')
+    requisition_order_id = fields.Many2one('custom.purchase.requisition.order', string='Requisition Order')
     receiving_date = fields.Date(string='Receiving Date', required=True)
     requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference', required=True)
     product_id = fields.Many2one('product.product', string='Product', required=True)
-    uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
+    uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     quantity = fields.Float(string='Quantity', required=True)
     location_id = fields.Many2one('stock.location', string='Location')
     vendor_id = fields.Many2one('res.company', string='Vendors')
+
     # receiving_ids = fields.One2many('rec.date', 'rec_date_id')
 # class ProductCategory(models.Model):
 #     _inherit = 'product.category'
@@ -617,30 +621,70 @@ class Prepaid(models.Model):
     deadline = fields.Date(string='Deadline Date')
     requisition_id = fields.Many2one('custom.purchase.requisition')
 
-class ReceivingDateWizard(models.TransientModel):
-    _name = 'rec.date'
 
+class PrepareReceivingDate(models.Model):
+    _name = 'prepare.receiving.date'
+
+    product_id = fields.Many2one('product.product', string='Product')
+    uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
+    quantity = fields.Float(string='Quantity')
+    requisition_id = fields.Many2one('custom.purchase.requisition')
+    receiving_date_lines_ids = fields.One2many('prepare.receiving.date.lines', 'prepare_id', string='Receiving Dates Ids')
+    requisition_order_id = fields.Many2one('custom.purchase.requisition.order', string='Requisition Order')
+    location_id = fields.Many2one('stock.location', string='Location', domain=[('usage', '=', 'internal')])
+
+    def add_receiving_dates(self):
+        # Calculate the total quantity already created in the target model for the related requisition_id
+        total_existing_quantity = sum(self.env['receiving.date'].search([
+            ('requisition_id', '=', self.requisition_id.id),
+            ('requisition_order_id', '=', self.requisition_order_id.id),
+            ('product_id', '=', self.product_id.id),
+        ]).mapped('quantity'))
+
+        # Check if the total existing quantity is already equal to or exceeds the parent model's quantity
+        if total_existing_quantity >= self.quantity:
+            raise ValidationError('Cannot create more records: total created quantity already equals or exceeds the required quantity.')
+
+        # Validate that the total line quantity matches the wizard's total quantity
+        total_line_quantity = sum(self.receiving_date_lines_ids.mapped('quantity'))
+        if total_line_quantity != self.quantity:
+            raise ValidationError('Quantity of Lines Must Be Equal to Total Quantity')
+
+        for line in self.receiving_date_lines_ids:
+            # Check if adding this line would exceed the required quantity
+            if total_existing_quantity + line.quantity > self.quantity:
+                raise ValidationError(
+                    f"Adding this line exceeds the required quantity ({self.quantity}). Current total: {total_existing_quantity}."
+                )
+
+            # Create the new record
+            self.env['receiving.date'].create({
+                'receiving_date': line.receiving_date,
+                'product_id': self.product_id.id,
+                'uom_id': line.uom_id.id,
+                'quantity': line.quantity,
+                'location_id': line.location_id.id,
+                'vendor_id': line.vendor_id.id,
+                'requisition_id': self.requisition_id.id,
+                'requisition_order_id': self.requisition_order_id.id,
+            })
+
+            # Update the total existing quantity after each creation
+            total_existing_quantity += line.quantity
+
+
+class PrepareReceivingDateLines(models.Model):
+    _name = 'prepare.receiving.date.lines'
+
+    prepare_id = fields.Many2one('prepare.receiving.date', string='Prepare Id')
+    requisition_order_id = fields.Many2one('custom.purchase.requisition.order', string='Requisition Order')
+
+    unique_id = fields.Char(string='Unique Identifier')
     receiving_date = fields.Date(string='Receiving Date', required=True)
+    requisition_id = fields.Many2one('custom.purchase.requisition', string='Requisition Reference', required=True)
     product_id = fields.Many2one('product.product', string='Product', required=True)
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure', readonly=True)
     quantity = fields.Float(string='Quantity', required=True)
     location_id = fields.Many2one('stock.location', string='Location')
     vendor_id = fields.Many2one('res.company', string='Vendors')
-    requisition_id = fields.Many2one('custom.purchase.requisition')
-    def add_data(self):
-        active_ids = self.env.context.get('active_ids')
-        dates = self.env['custom.purchase.requisition'].search([('id', 'in', active_ids)])
-        for date in dates:
-            # Condition to check if supply_type is 'single' and location_id has a value
-            if date.supply_type == 'single' and self.location_id:
-                raise ValidationError(
-                    "Location should not be set when Supply Type is 'Single'. Please remove the location or change the Supply Type.")
-            date.receiving_order_ids.create({
-                'receiving_date':self.receiving_date,
-                'product_id':self.product_id.id,
-                'uom_id':self.uom_id.id,
-                'quantity':self.quantity,
-                'location_id':self.location_id.id,
-                'vendor_id':self.vendor_id.id,
-                'requisition_id': date.id,
-            })
+

@@ -1,36 +1,59 @@
 <odoo>
-    <record id="rec_date_wizard" model="ir.ui.view">
-        <field name="name">rec.date</field>
-        <field name="model">rec.date</field>
+    <record id="prepare_rec_date_form_view" model="ir.ui.view">
+        <field name="name">prepare.rec.date.form.view</field>
+        <field name="model">prepare.receiving.date</field>
         <field name="arch" type="xml">
-            <form string="Receiving Date">
-                <group>
+            <form string="Prepare Receiving Date">
+                <sheet>
                     <group>
-                        <field name="receiving_date"/>
-                        <field name="product_id"/>
-                        <field name="uom_id"/>
+                        <group>
+                            <field name="requisition_id" invisible="1"/>
+                            <field name="requisition_order_id" invisible="1"/>
+                            <field name="product_id"/>
+                            <field name="uom_id"/>
+                        </group>
+                        <group>
+                            <field name="quantity"/>
+                            <field name="location_id"/>
+                        </group>
                     </group>
-                    <group>
-                        <field name="quantity"/>
-                        <field name="location_id"/>
-                        <field name="vendor_id"/>
-                    </group>
-                </group>
+                    <notebook>
+                        <page string="Receiving Dates">
+                            <field name="receiving_date_lines_ids" editable="bottom"
+                                   context="{
+                                   'default_requisition_id': requisition_id,
+                                   'default_requisition_order_id': requisition_order_id,
+                                   'default_product_id': product_id,
+                                   'default_uom_id': uom_id,
+                                   'default_location_id': location_id,
+                               }">
+                                <tree string="Receiving Dates" editable="bottom">
+                                    <field name="quantity" width="20%"/>
+                                    <field name="location_id" width="20%"/>
+                                    <field name="vendor_id" width="20%"/>
+                                    <field name="receiving_date" width="20%"/>
+                                    <field name="requisition_id" column_invisible="1" width="20%"/>
+                                    <field name="product_id" column_invisible="1" width="20%"/>
+                                    <field name="uom_id" column_invisible="1" width="20%"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
                 <footer>
-                    <button name="add_data" string="Submit" type="object" class="btn-primary" data-hotkey="q"/>
+                    <button name="add_receiving_dates" string="Submit" type="object" class="btn-primary"
+                            data-hotkey="q"/>
                     <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="x"/>
                 </footer>
             </form>
         </field>
     </record>
-    <record id="action_receiving_date_wizard" model="ir.actions.act_window">
-        <field name="name">Rc Date</field>
-        <field name="res_model">rec.date</field>
-        <field name="binding_model_id" ref="model_receiving_date"/>
+    <record id="action_prepare_receiving_date" model="ir.actions.act_window">
+        <field name="name">Prepare Receiving Date Lines</field>
+        <field name="res_model">prepare.receiving.date</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
-        <field name="view_id" ref="rec_date_wizard"/>
-
+        <field name="view_id" ref="prepare_rec_date_form_view"/>
     </record>
 
     <!--    product tree view-->
@@ -99,12 +122,6 @@
                             <field name="single_category_id"/>
                             <field name="supplier_type"/>
                             <field name="single_vendor_id" invisible="supplier_type != 'single' or is_service == True"/>
-                            <button name="%(employee_purchase_requisition.action_receiving_date_wizard)d"
-                                                    string="Add Receiving"
-                                                    type="action"
-                                                    invisible="order_type != 'scheduled'"
-                                                   />
-
                         </group>
 
                         <!-- Picking details on the right section -->
@@ -144,24 +161,39 @@
                                     <!-- No product_category_id -->
                                     <field name="product_category_id"
                                            column_invisible="parent.products_category_type != 'multiple'"/>
+                                    <field name="image_1920" widget='image' style="max-width: 2px; max-height: 2px;"/>
                                     <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"
                                            column_invisible="parent.is_service == True"/>
                                     <field name="uom_id"/>
                                     <field name="description"/>
                                     <field name="quantity"/>
+                                    <field name="order_type" column_invisible="1"/>
                                     <field name="unit_price" readonly="1" column_invisible="1"/>
                                     <field name="total" column_invisible="1"/>
                                     <field name="tax_id" column_invisible="1"/>
                                     <field name="location_id" column_invisible="parent.supply_type != 'multiple'"/>
-                                    <field name="vendor_location_id"
-                                           column_invisible="parent.supply_type != 'multiple'"/>
+                                    <field name="vendor_location_id" column_invisible="1"/>
                                     <field name="address" column_invisible="1"/>
                                     <field name="vendor_ids" widget="many2many_tags"
                                            column_invisible="parent.supplier_type != 'multiple' and parent.is_service != True"/>
-                                    <button name="copy_line" string="Duplicate" type="object" class="oe_highlight"/>
+                                    <button name="copy_line" string="Create Product" type="object" class="oe_highlight"/>
                                     <button name="address_icon" string="Address" type="object" icon="fa-address-card"
                                             invisible="parent.supply_type != 'multiple'"/>
-<!--                                    <field name="is_seen" string="Is Available" readonly="1"/>-->
+                                    <!--                                    <field name="is_seen" string="Is Available" readonly="1"/>-->
+                                    <button name="%(employee_purchase_requisition.action_prepare_receiving_date)d"
+                                            string="Add Receiving"
+                                            type="action"
+                                            class="btn-primary"
+                                            invisible="order_type != 'scheduled'"
+                                            context="{
+            'default_requisition_id': parent.id,
+            'default_requisition_order_id': id,
+            'default_product_id': product_id,
+            'default_quantity': quantity,
+            'default_uom_id': uom_id,
+            'default_location_id': parent.supply_type == 'multiple' and location_id or parent.single_location_id,
+        }"
+                                    />
                                 </tree>
                             </field>
                         </page>
@@ -176,6 +208,8 @@
                         <page string="Receiving Date" invisible="order_type == 'one_time'">
                             <field name="receiving_order_ids" widget="one2many_list" editable="bottom">
                                 <tree string="Receiving Date" editable="bottom" create="0" edit="0">
+                                    <field name="requisition_id" column_invisible="1"/>
+                                    <field name="requisition_order_id" column_invisible="1"/>
                                     <field name="receiving_date"/>
                                     <field name="product_id" domain="[('categ_id', '=', parent.single_category_id)]"/>
                                     <field name="uom_id"/>
@@ -273,7 +307,7 @@
 
     <menuitem id="menu_custom_purchase_requisition_in_purchase"
               name="Purchase Requisitions"
-              parent="purchase.menu_purchase_root"
+              parent="purchase.menu_procurement_management"
               action="action_custom_purchase_requisition"
-              sequence="20"/> <!-- Set the sequence as per your preference -->
+              sequence="10"/> <!-- Set the sequence as per your preference -->
 </odoo>

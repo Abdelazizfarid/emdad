@@ -29,3 +29,4 @@ from . import stock_location_custom
 from . import custom_purchase_requisition
 from . import custom_sales_requisition
 from . import custom_res_user
+from . import purchase_confirm_button_inherit

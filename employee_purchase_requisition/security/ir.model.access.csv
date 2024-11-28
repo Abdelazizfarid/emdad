@@ -12,4 +12,7 @@ access_sales_receiving_date_user,sales.receiving.date,model_sales_receiving_date
 access_prepaid,prepaid,model_prepaid,base.group_user,1,1,1,1
 access_product_suggest,product.suggest,model_product_suggest,base.group_user,1,1,1,1
 access_purchase_product_suggest,purchase.product.suggest,model_purchase_product_suggest,base.group_user,1,1,1,1
-access_rec_date,rec.date,model_rec_date,base.group_user,1,1,1,1
+access_prepare_receiving_date,prepare.receiving.date,model_prepare_receiving_date,base.group_user,1,1,1,1
+access_prepare_receiving_date_lines,prepare.receiving.date.lines,model_prepare_receiving_date_lines,base.group_user,1,1,1,1
+access_purchase_order_reject_wizard,purchase.order.reject.wizard,model_purchase_order_reject_wizard,base.group_user,1,1,1,1
+access_purchase_order_confirm_wizard,purchase.order.confirm.wizard,model_purchase_order_confirm_wizard,base.group_user,1,1,1,1
